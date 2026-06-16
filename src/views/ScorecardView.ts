@@ -46,6 +46,7 @@ export class ScorecardView extends FileView {
 	private viewModeBtn: HTMLButtonElement | null = null;
 	private editModeBtn: HTMLButtonElement | null = null;
 	private viewContainer: HTMLElement | null = null;
+	private scrollBodyEl: HTMLElement | null = null;
 	private editContainer: HTMLElement | null = null;
 	private sourceEditor: HTMLTextAreaElement | null = null;
 	private scorePadEl: HTMLElement | null = null;
@@ -87,6 +88,7 @@ export class ScorecardView extends FileView {
 		this.viewModeBtn = null;
 		this.editModeBtn = null;
 		this.viewContainer = null;
+		this.scrollBodyEl = null;
 		this.editContainer = null;
 		this.sourceEditor = null;
 		this.scorePadEl = null;
@@ -142,38 +144,50 @@ export class ScorecardView extends FileView {
 		this.cellRefs = Array.from({ length: config.cardsCount }, () => []);
 		this.endTotalRefs = Array.from({ length: config.cardsCount }, () => []);
 		this.grandTotalEls = [];
+		this.combinedTotalEl = null;
 
-		this.renderResizePanel();
+		this.scrollBodyEl = this.viewContainer.createDiv({ cls: 'archery-scroll-body' });
 
-		const grids = this.viewContainer.createDiv({ cls: 'archery-grids' });
+		this.renderResizePanel(this.scrollBodyEl);
+
+		const grids = this.scrollBodyEl.createDiv({
+			cls: config.cardsCount > 1 ? 'archery-grids archery-grids--multi' : 'archery-grids',
+		});
 		for (let card = 0; card < config.cardsCount; card++) {
 			this.renderScorecard(grids, card);
 		}
 
-		const footer = this.viewContainer.createDiv({ cls: 'archery-footer' });
+		const stickyFooter = this.viewContainer.createDiv({ cls: 'archery-sticky-footer' });
+
+		const partialTotals = stickyFooter.createDiv({ cls: 'archery-partial-totals' });
 		for (let card = 0; card < config.cardsCount; card++) {
-			const row = footer.createDiv({ cls: 'archery-grand-total-row' });
-			row.createSpan({ text: `Scorecard ${card + 1} total: ` });
-			const totalEl = row.createSpan({ cls: 'archery-grand-total-value' });
+			const item = partialTotals.createDiv({ cls: 'archery-partial-total-item' });
+			item.createSpan({ cls: 'archery-partial-total-label', text: `Card ${card + 1}` });
+			const totalEl = item.createSpan({ cls: 'archery-partial-total-value' });
 			totalEl.setText('0');
 			this.grandTotalEls[card] = totalEl;
 		}
-		const combinedRow = footer.createDiv({
-			cls: 'archery-grand-total-row archery-combined-total',
-		});
-		combinedRow.createSpan({ text: 'Combined total: ' });
-		this.combinedTotalEl = combinedRow.createSpan({ cls: 'archery-grand-total-value' });
+
+		this.scorePadEl = stickyFooter.createDiv({ cls: 'archery-score-pad' });
+		this.renderScorePad();
+
+		const grandTotalBar = stickyFooter.createDiv({ cls: 'archery-grand-total-bar' });
+		const grandTotalHeading = grandTotalBar.createEl('h1', { cls: 'archery-grand-total-h1' });
+		grandTotalHeading.createSpan({ cls: 'archery-grand-total-label', text: 'Grand total' });
+		this.combinedTotalEl = grandTotalHeading.createSpan({ cls: 'archery-grand-total-value' });
 		this.combinedTotalEl.setText('0');
 
-		this.scorePadEl = this.viewContainer.createDiv({ cls: 'archery-score-pad' });
-		this.renderScorePad();
+		const undoBtn = grandTotalBar.createEl('button', {
+			cls: 'archery-undo-btn',
+			text: 'Undo',
+		});
+		undoBtn.addEventListener('click', () => this.handleUndo());
+
 		this.refreshAllCells();
 	}
 
-	private renderResizePanel(): void {
-		if (!this.viewContainer) return;
-
-		const panel = this.viewContainer.createDiv({ cls: 'archery-resize-panel' });
+	private renderResizePanel(parent: HTMLElement): void {
+		const panel = parent.createDiv({ cls: 'archery-resize-panel' });
 		panel.createDiv({ cls: 'archery-resize-title', text: 'Layout' });
 
 		const row = panel.createDiv({ cls: 'archery-resize-row' });
@@ -373,13 +387,6 @@ export class ScorecardView extends FileView {
 			this.createScoreButton(bottomRow, score);
 		}
 		this.createScoreButton(bottomRow, MISS_SCORE, 'archery-score-miss', 'M');
-
-		const actions = this.scorePadEl.createDiv({ cls: 'archery-score-actions' });
-		const undoBtn = actions.createEl('button', {
-			cls: 'archery-undo-btn',
-			text: 'Undo',
-		});
-		undoBtn.addEventListener('click', () => this.handleUndo());
 	}
 
 	private createScoreButton(
