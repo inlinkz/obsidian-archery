@@ -2,17 +2,20 @@ import { FileView, Notice, WorkspaceLeaf, type TFile } from 'obsidian';
 import {
 	applyScore,
 	applyScoreColorClass,
-	ARROWS_PER_END,
 	cardGrandTotal,
+	CONFIG_LIMITS,
 	createSessionState,
 	endIsComplete,
 	endTotal,
 	formatScore,
+	gridColumnStyle,
 	MISS_SCORE,
 	nextCursor,
+	resizeSessionState,
 	scoreColorClass,
 	sessionGrandTotal,
 	undoLast,
+	type SessionConfig,
 	type SessionState,
 } from '../model/scorecard';
 import {
@@ -35,8 +38,8 @@ interface EndTotalRef {
 export class ScorecardView extends FileView {
 	private state: SessionState = createSessionState();
 	private mode: ViewMode = 'view';
-	private cellRefs: CellRef[][][] = [[], []];
-	private endTotalRefs: EndTotalRef[][] = [[], []];
+	private cellRefs: CellRef[][][] = [];
+	private endTotalRefs: EndTotalRef[][] = [];
 	private grandTotalEls: HTMLElement[] = [];
 	private combinedTotalEl: HTMLElement | null = null;
 	private headerEl: HTMLElement | null = null;
@@ -76,8 +79,8 @@ export class ScorecardView extends FileView {
 	}
 
 	private resetRefs(): void {
-		this.cellRefs = [[], []];
-		this.endTotalRefs = [[], []];
+		this.cellRefs = [];
+		this.endTotalRefs = [];
 		this.grandTotalEls = [];
 		this.combinedTotalEl = null;
 		this.headerEl = null;
@@ -110,10 +113,7 @@ export class ScorecardView extends FileView {
 		this.editModeBtn.addEventListener('click', () => this.setMode('edit'));
 
 		this.headerEl.createEl('h3', { text: this.file?.basename ?? 'Archery Scorecard' });
-		this.headerEl.createDiv({
-			cls: 'archery-note-label',
-			text: this.file?.path ?? '',
-		});
+		this.renderConfigLabel();
 
 		this.viewContainer = container.createDiv({ cls: 'archery-view-container' });
 		this.editContainer = container.createDiv({ cls: 'archery-edit-container' });
@@ -123,17 +123,35 @@ export class ScorecardView extends FileView {
 		this.updateModeUi();
 	}
 
+	private renderConfigLabel(): void {
+		const existing = this.headerEl?.querySelector('.archery-note-label');
+		existing?.remove();
+
+		const { config } = this.state;
+		this.headerEl?.createDiv({
+			cls: 'archery-note-label',
+			text: `${this.file?.path ?? ''} · ${config.cardsCount}×${config.endsPerCard}×${config.arrowsPerEnd} (cards×ends×arrows)`,
+		});
+	}
+
 	private renderViewMode(): void {
 		if (!this.viewContainer) return;
 		this.viewContainer.empty();
 
+		const { config } = this.state;
+		this.cellRefs = Array.from({ length: config.cardsCount }, () => []);
+		this.endTotalRefs = Array.from({ length: config.cardsCount }, () => []);
+		this.grandTotalEls = [];
+
+		this.renderResizePanel();
+
 		const grids = this.viewContainer.createDiv({ cls: 'archery-grids' });
-		for (let card = 0; card < 2; card++) {
+		for (let card = 0; card < config.cardsCount; card++) {
 			this.renderScorecard(grids, card);
 		}
 
 		const footer = this.viewContainer.createDiv({ cls: 'archery-footer' });
-		for (let card = 0; card < 2; card++) {
+		for (let card = 0; card < config.cardsCount; card++) {
 			const row = footer.createDiv({ cls: 'archery-grand-total-row' });
 			row.createSpan({ text: `Scorecard ${card + 1} total: ` });
 			const totalEl = row.createSpan({ cls: 'archery-grand-total-value' });
@@ -152,13 +170,81 @@ export class ScorecardView extends FileView {
 		this.refreshAllCells();
 	}
 
+	private renderResizePanel(): void {
+		if (!this.viewContainer) return;
+
+		const panel = this.viewContainer.createDiv({ cls: 'archery-resize-panel' });
+		panel.createDiv({ cls: 'archery-resize-title', text: 'Layout' });
+
+		const row = panel.createDiv({ cls: 'archery-resize-row' });
+		const { config } = this.state;
+
+		this.renderResizeControl(row, 'Ends', config.endsPerCard, CONFIG_LIMITS.endsPerCard, (value) =>
+			this.applyLayoutChange({ endsPerCard: value }),
+		);
+		this.renderResizeControl(row, 'Arrows', config.arrowsPerEnd, CONFIG_LIMITS.arrowsPerEnd, (value) =>
+			this.applyLayoutChange({ arrowsPerEnd: value }),
+		);
+		this.renderResizeControl(row, 'Cards', config.cardsCount, CONFIG_LIMITS.cardsCount, (value) =>
+			this.applyLayoutChange({ cardsCount: value }),
+		);
+	}
+
+	private renderResizeControl(
+		parent: HTMLElement,
+		label: string,
+		value: number,
+		limits: { min: number; max: number },
+		onChange: (value: number) => void,
+	): void {
+		const control = parent.createDiv({ cls: 'archery-resize-control' });
+		control.createSpan({ cls: 'archery-resize-label', text: label });
+
+		const minusBtn = control.createEl('button', {
+			cls: 'archery-resize-btn',
+			text: '−',
+			attr: { 'aria-label': `Decrease ${label.toLowerCase()}` },
+		});
+		const valueEl = control.createSpan({ cls: 'archery-resize-value', text: String(value) });
+		const plusBtn = control.createEl('button', {
+			cls: 'archery-resize-btn',
+			text: '+',
+			attr: { 'aria-label': `Increase ${label.toLowerCase()}` },
+		});
+
+		minusBtn.disabled = value <= limits.min;
+		plusBtn.disabled = value >= limits.max;
+
+		minusBtn.addEventListener('click', () => onChange(value - 1));
+		plusBtn.addEventListener('click', () => onChange(value + 1));
+
+		valueEl.setText(String(value));
+	}
+
+	private applyLayoutChange(partial: Partial<SessionConfig>): void {
+		const next = resizeSessionState(this.state, partial);
+		if (
+			next.config.endsPerCard === this.state.config.endsPerCard &&
+			next.config.arrowsPerEnd === this.state.config.arrowsPerEnd &&
+			next.config.cardsCount === this.state.config.cardsCount
+		) {
+			return;
+		}
+
+		this.state = next;
+		this.renderConfigLabel();
+		this.syncEditBufferFromState();
+		this.renderViewMode();
+		void this.persistState();
+	}
+
 	private renderEditMode(): void {
 		if (!this.editContainer) return;
 		this.editContainer.empty();
 
 		this.editContainer.createDiv({
 			cls: 'archery-edit-hint',
-			text: 'Edit the scorecard markup below. Switch to View to apply changes.',
+			text: 'Edit the scorecard markup below. Change the config line or table shape, then switch to View to apply.',
 		});
 
 		this.sourceEditor = this.editContainer.createEl('textarea', {
@@ -203,7 +289,19 @@ export class ScorecardView extends FileView {
 			return false;
 		}
 
+		const configChanged =
+			parsed.config.endsPerCard !== this.state.config.endsPerCard ||
+			parsed.config.arrowsPerEnd !== this.state.config.arrowsPerEnd ||
+			parsed.config.cardsCount !== this.state.config.cardsCount;
+
 		this.state = parsed;
+
+		if (configChanged) {
+			this.render();
+			return true;
+		}
+
+		this.renderConfigLabel();
 		this.refreshAllCells();
 		void this.persistState();
 		return true;
@@ -219,14 +317,16 @@ export class ScorecardView extends FileView {
 	}
 
 	private renderScorecard(parent: HTMLElement, cardIndex: number): void {
+		const { config } = this.state;
 		const section = parent.createDiv({ cls: 'archery-scorecard-section' });
 		section.createEl('h4', { text: `Scorecard ${cardIndex + 1}` });
 
 		const grid = section.createDiv({ cls: 'archery-scorecard-grid' });
 
 		const headerRow = grid.createDiv({ cls: 'archery-grid-row archery-grid-header' });
+		headerRow.style.gridTemplateColumns = gridColumnStyle(config.arrowsPerEnd);
 		headerRow.createDiv({ cls: 'archery-cell archery-cell-label', text: 'End' });
-		for (let arrow = 1; arrow <= ARROWS_PER_END; arrow++) {
+		for (let arrow = 1; arrow <= config.arrowsPerEnd; arrow++) {
 			headerRow.createDiv({
 				cls: 'archery-cell archery-cell-header',
 				text: String(arrow),
@@ -237,12 +337,13 @@ export class ScorecardView extends FileView {
 		this.cellRefs[cardIndex] = [];
 		this.endTotalRefs[cardIndex] = [];
 
-		for (let end = 0; end < 6; end++) {
+		for (let end = 0; end < config.endsPerCard; end++) {
 			const row = grid.createDiv({ cls: 'archery-grid-row' });
+			row.style.gridTemplateColumns = gridColumnStyle(config.arrowsPerEnd);
 			row.createDiv({ cls: 'archery-cell archery-cell-label', text: String(end + 1) });
 
 			const arrowCells: CellRef[] = [];
-			for (let arrow = 0; arrow < ARROWS_PER_END; arrow++) {
+			for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
 				const cell = row.createDiv({ cls: 'archery-cell archery-cell-score' });
 				cell.setText('·');
 				arrowCells.push({ el: cell });
@@ -259,29 +360,41 @@ export class ScorecardView extends FileView {
 		if (!this.scorePadEl) return;
 		this.scorePadEl.empty();
 
-		const buttons = this.scorePadEl.createDiv({ cls: 'archery-score-buttons' });
-		for (let score = 1; score <= 10; score++) {
-			const btn = buttons.createEl('button', {
-				cls: 'archery-score-btn',
-				text: String(score),
-			});
-			const colorClass = scoreColorClass(score);
-			if (colorClass) btn.addClass(colorClass);
-			btn.addEventListener('click', () => this.handleScore(score));
+		const pad = this.scorePadEl.createDiv({ cls: 'archery-score-buttons' });
+
+		const topRow = pad.createDiv({ cls: 'archery-score-row archery-score-row-top' });
+		this.createScoreButton(topRow, 10, 'archery-score-btn-wide');
+		for (let score = 9; score >= 6; score--) {
+			this.createScoreButton(topRow, score);
 		}
 
-		const actions = this.scorePadEl.createDiv({ cls: 'archery-score-actions' });
-		const missBtn = actions.createEl('button', {
-			cls: 'archery-score-btn archery-miss-btn archery-score-miss',
-			text: 'M',
-		});
-		missBtn.addEventListener('click', () => this.handleScore(MISS_SCORE));
+		const bottomRow = pad.createDiv({ cls: 'archery-score-row archery-score-row-bottom' });
+		for (let score = 5; score >= 1; score--) {
+			this.createScoreButton(bottomRow, score);
+		}
+		this.createScoreButton(bottomRow, MISS_SCORE, 'archery-score-miss', 'M');
 
+		const actions = this.scorePadEl.createDiv({ cls: 'archery-score-actions' });
 		const undoBtn = actions.createEl('button', {
 			cls: 'archery-undo-btn',
 			text: 'Undo',
 		});
 		undoBtn.addEventListener('click', () => this.handleUndo());
+	}
+
+	private createScoreButton(
+		parent: HTMLElement,
+		score: number,
+		extraClass = '',
+		label?: string,
+	): void {
+		const btn = parent.createEl('button', {
+			cls: ['archery-score-btn', extraClass].filter(Boolean).join(' '),
+			text: label ?? String(score),
+		});
+		const colorClass = scoreColorClass(score);
+		if (colorClass) btn.addClass(colorClass);
+		btn.addEventListener('click', () => this.handleScore(score));
 	}
 
 	private isActiveCell(card: number, end: number, arrow: number): boolean {
@@ -295,16 +408,21 @@ export class ScorecardView extends FileView {
 	}
 
 	private refreshAllCells(): void {
+		const { config } = this.state;
 		const cursor = nextCursor(this.state);
 
-		for (let card = 0; card < 2; card++) {
-			const scorecard = this.state.cards[card]!;
-			for (let end = 0; end < 6; end++) {
-				const arrows = scorecard.ends[end]!;
-				for (let arrow = 0; arrow < ARROWS_PER_END; arrow++) {
+		for (let card = 0; card < config.cardsCount; card++) {
+			const scorecard = this.state.cards[card];
+			if (!scorecard) continue;
+
+			for (let end = 0; end < config.endsPerCard; end++) {
+				const arrows = scorecard.ends[end];
+				if (!arrows) continue;
+
+				for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
 					const ref = this.cellRefs[card]?.[end]?.[arrow];
 					if (!ref) continue;
-					const score = arrows[arrow]!;
+					const score = arrows[arrow] ?? null;
 					ref.el.setText(formatScore(score));
 					ref.el.toggleClass('archery-cell-active', this.isActiveCell(card, end, arrow));
 					ref.el.toggleClass('archery-cell-filled', score !== null);
@@ -352,7 +470,7 @@ export class ScorecardView extends FileView {
 	}
 
 	async resetSession(): Promise<void> {
-		this.state = createSessionState();
+		this.state = createSessionState(this.state.config);
 		this.syncEditBufferFromState();
 		this.refreshAllCells();
 		await this.persistState();

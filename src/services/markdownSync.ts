@@ -2,17 +2,19 @@ import { Notice } from 'obsidian';
 import type { TFile } from 'obsidian';
 import type { App } from 'obsidian';
 import {
-	ARROWS_PER_END,
-	CARDS_COUNT,
 	createSessionState,
-	ENDS_PER_CARD,
+	DEFAULT_CONFIG,
 	MISS_SCORE,
+	normalizeConfig,
 	type ArrowScore,
+	type SessionConfig,
 	type SessionState,
 } from '../model/scorecard';
+import type { ArcheryPluginSettings } from '../settings';
 
 export const MARKER_START = '<!-- archery-scorecard:start -->';
 export const MARKER_END = '<!-- archery-scorecard:end -->';
+export const CONFIG_PREFIX = '<!-- archery-config:';
 export const ARCHERY_EXTENSION = 'archery';
 
 function formatCell(score: ArrowScore): string {
@@ -37,36 +39,83 @@ function formatDateForFilename(date = new Date()): string {
 	return `${year}-${month}-${day}`;
 }
 
-function parseScorecardSection(section: string): ArrowScore[][] {
+export function serializeConfig(config: SessionConfig): string {
+	return `${CONFIG_PREFIX} ${JSON.stringify(normalizeConfig(config))} -->`;
+}
+
+export function parseConfigLine(line: string): SessionConfig | null {
+	const trimmed = line.trim();
+	if (!trimmed.startsWith(CONFIG_PREFIX)) return null;
+	const json = trimmed.slice(CONFIG_PREFIX.length).replace(/-->\s*$/, '').trim();
+	try {
+		return normalizeConfig(JSON.parse(json) as Partial<SessionConfig>);
+	} catch {
+		return null;
+	}
+}
+
+function parseTableHeader(line: string): number | null {
+	if (!/\|\s*End\s*\|/i.test(line)) return null;
+	const parts = line
+		.split('|')
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0);
+	if (parts.length < 3) return null;
+	return parts.length - 2;
+}
+
+function parseScorecardSection(section: string): {
+	ends: ArrowScore[][];
+	arrowsPerEnd: number;
+} {
+	const lines = section.split('\n');
+	let arrowsPerEnd = 0;
 	const ends: ArrowScore[][] = [];
 
-	for (const line of section.split('\n')) {
+	for (const line of lines) {
 		if (!line.startsWith('|')) continue;
 		if (line.includes('---')) continue;
-		if (/\|\s*End\s*\|/i.test(line)) continue;
+
+		const headerArrows = parseTableHeader(line);
+		if (headerArrows !== null) {
+			arrowsPerEnd = headerArrows;
+			continue;
+		}
 
 		const parts = line
 			.split('|')
 			.map((part) => part.trim())
 			.filter((part) => part.length > 0);
 
-		if (parts.length < 8) continue;
+		if (parts.length < 3) continue;
 		if (!/^\d+$/.test(parts[0]!)) continue;
 
-		const arrows = parts.slice(1, 7).map(parseArrowCell);
-		ends.push(arrows);
-	}
-
-	while (ends.length < ENDS_PER_CARD) {
-		ends.push(Array.from<ArrowScore>({ length: ARROWS_PER_END }).fill(null));
-	}
-
-	return ends.slice(0, ENDS_PER_CARD).map((end) => {
-		while (end.length < ARROWS_PER_END) {
-			end.push(null);
+		const arrowCells = parts.slice(1, parts.length - 1).map(parseArrowCell);
+		if (arrowCells.length > 0) {
+			arrowsPerEnd = Math.max(arrowsPerEnd, arrowCells.length);
 		}
-		return end.slice(0, ARROWS_PER_END);
-	});
+		ends.push(arrowCells);
+	}
+
+	return { ends, arrowsPerEnd };
+}
+
+function padScorecard(
+	ends: ArrowScore[][],
+	config: SessionConfig,
+): ArrowScore[][] {
+	const padded: ArrowScore[][] = [];
+
+	for (let endIndex = 0; endIndex < config.endsPerCard; endIndex++) {
+		const source = ends[endIndex] ?? [];
+		const row = Array.from<ArrowScore>({ length: config.arrowsPerEnd }).fill(null);
+		for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
+			row[arrow] = source[arrow] ?? null;
+		}
+		padded.push(row);
+	}
+
+	return padded;
 }
 
 export function extractScorecardContent(content: string): string {
@@ -79,35 +128,68 @@ export function extractScorecardContent(content: string): string {
 
 export function parseScorecardBlock(content: string): SessionState | null {
 	const block = extractScorecardContent(content);
-	const sections = block.split(/###\s*Scorecard\s+\d+/i).slice(1);
+	const lines = block.split('\n');
 
+	let config: SessionConfig | null = null;
+	for (const line of lines) {
+		const parsed = parseConfigLine(line);
+		if (parsed) {
+			config = parsed;
+			break;
+		}
+	}
+
+	const sections = block.split(/###\s*Scorecard\s+\d+/i).slice(1);
 	if (sections.length === 0) {
 		return null;
 	}
 
-	const state = createSessionState();
+	const parsedCards = sections.map((section) => parseScorecardSection(section));
+	const inferredConfig = normalizeConfig({
+		endsPerCard: Math.max(
+			config?.endsPerCard ?? DEFAULT_CONFIG.endsPerCard,
+			...parsedCards.map((card) => card.ends.length),
+		),
+		arrowsPerEnd: Math.max(
+			config?.arrowsPerEnd ?? DEFAULT_CONFIG.arrowsPerEnd,
+			...parsedCards.map((card) => card.arrowsPerEnd),
+		),
+		cardsCount: Math.max(config?.cardsCount ?? DEFAULT_CONFIG.cardsCount, parsedCards.length),
+	});
 
-	for (let cardIndex = 0; cardIndex < CARDS_COUNT; cardIndex++) {
-		const section = sections[cardIndex];
-		if (!section) continue;
-		state.cards[cardIndex] = { ends: parseScorecardSection(section) };
+	const state = createSessionState(inferredConfig);
+	for (let cardIndex = 0; cardIndex < inferredConfig.cardsCount; cardIndex++) {
+		const parsed = parsedCards[cardIndex];
+		state.cards[cardIndex] = {
+			ends: padScorecard(parsed?.ends ?? [], inferredConfig),
+		};
 	}
 
 	return state;
 }
 
 export function buildScorecardBlock(state: SessionState): string {
-	const lines: string[] = [MARKER_START, ''];
+	const config = normalizeConfig(state.config);
+	const lines: string[] = [
+		MARKER_START,
+		serializeConfig(config),
+		'',
+	];
 
-	for (let cardIndex = 0; cardIndex < CARDS_COUNT; cardIndex++) {
+	for (let cardIndex = 0; cardIndex < config.cardsCount; cardIndex++) {
+		const arrowHeaders = Array.from({ length: config.arrowsPerEnd }, (_, i) => String(i + 1));
 		lines.push(`### Scorecard ${cardIndex + 1}`);
-		lines.push('| End | 1 | 2 | 3 | 4 | 5 | 6 | Total |');
-		lines.push('| --- | --- | --- | --- | --- | --- | --- | --- |');
+		lines.push(`| End | ${arrowHeaders.join(' | ')} | Total |`);
+		lines.push(
+			`| --- | ${Array.from({ length: config.arrowsPerEnd }, () => '---').join(' | ')} | --- |`,
+		);
 
-		const card = state.cards[cardIndex]!;
-		for (let endIndex = 0; endIndex < ENDS_PER_CARD; endIndex++) {
-			const end = card.ends[endIndex]!;
-			const cells = end.map((score) => formatCell(score));
+		const card = state.cards[cardIndex];
+		for (let endIndex = 0; endIndex < config.endsPerCard; endIndex++) {
+			const end = card?.ends[endIndex] ?? [];
+			const cells = Array.from({ length: config.arrowsPerEnd }, (_, arrow) =>
+				formatCell(end[arrow] ?? null),
+			);
 			const total = end.reduce<number>((sum, score) => sum + (score ?? 0), 0);
 			const hasAny = end.some((score) => score !== null);
 			lines.push(
@@ -115,29 +197,33 @@ export function buildScorecardBlock(state: SessionState): string {
 			);
 		}
 
-		const cardTotal = card.ends.reduce(
+		const cardTotal = card?.ends.reduce(
 			(sum, end) => sum + end.reduce<number>((s, score) => s + (score ?? 0), 0),
 			0,
-		);
+		) ?? 0;
 		lines.push('');
 		lines.push(`**Scorecard ${cardIndex + 1} total:** ${cardTotal}`);
 		lines.push('');
 	}
 
-	const grandTotal = state.cards.reduce(
-		(sum, card) =>
-			sum +
-			card.ends.reduce(
-				(s, end) => s + end.reduce<number>((e, score) => e + (score ?? 0), 0),
-				0,
-			),
-		0,
-	);
-	lines.push(`**Grand total:** ${grandTotal}`);
+	lines.push(`**Grand total:** ${sessionGrandTotalFromState(state)}`);
 	lines.push('');
 	lines.push(MARKER_END);
 
 	return lines.join('\n');
+}
+
+function sessionGrandTotalFromState(state: SessionState): number {
+	return state.cards.reduce(
+		(sum, card) =>
+			sum +
+			card.ends.reduce(
+				(s, end) =>
+					s + end.reduce<number>((total, score) => total + (score ?? 0), 0),
+				0,
+			),
+		0,
+	);
 }
 
 export function serializeSession(state: SessionState): string {
@@ -172,7 +258,14 @@ export async function saveSessionToFile(
 	await app.vault.modify(file, serializeSession(state));
 }
 
-export async function createScorecardFile(app: App): Promise<TFile | null> {
+export async function createScorecardFile(
+	app: App,
+	settings: ArcheryPluginSettings = {
+		defaultEnds: DEFAULT_CONFIG.endsPerCard,
+		defaultArrows: DEFAULT_CONFIG.arrowsPerEnd,
+		defaultCards: DEFAULT_CONFIG.cardsCount,
+	},
+): Promise<TFile | null> {
 	const folder = app.fileManager.getNewFileParent('');
 	const dateLabel = formatDateForFilename();
 	const baseName = `Scorecard ${dateLabel}`;
@@ -184,8 +277,14 @@ export async function createScorecardFile(app: App): Promise<TFile | null> {
 		counter++;
 	}
 
+	const config = normalizeConfig({
+		endsPerCard: settings.defaultEnds,
+		arrowsPerEnd: settings.defaultArrows,
+		cardsCount: settings.defaultCards,
+	});
+
 	try {
-		return await app.vault.create(path, serializeSession(createSessionState()));
+		return await app.vault.create(path, serializeSession(createSessionState(config)));
 	} catch {
 		new Notice('Could not create scorecard file.');
 		return null;

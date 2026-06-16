@@ -76,6 +76,71 @@
 	word-break: break-word;
 }
 
+.archery-resize-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.6rem 0.75rem;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-secondary);
+}
+
+.archery-resize-title {
+	font-size: 0.8em;
+	font-weight: 600;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.archery-resize-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem 1rem;
+}
+
+.archery-resize-control {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+}
+
+.archery-resize-label {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	min-width: 3.25rem;
+}
+
+.archery-resize-value {
+	min-width: 1.5rem;
+	text-align: center;
+	font-weight: 700;
+	font-size: 0.95em;
+}
+
+.archery-resize-btn {
+	min-width: 2rem;
+	min-height: 2rem;
+	padding: 0;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-size: 1.1em;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.archery-resize-btn:hover:not(:disabled) {
+	background: var(--background-modifier-hover);
+}
+
+.archery-resize-btn:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
 .archery-grids {
 	display: flex;
 	flex-direction: column;
@@ -98,7 +163,6 @@
 
 .archery-grid-row {
 	display: grid;
-	grid-template-columns: 2.5rem repeat(6, 1fr) 3rem;
 	gap: 2px;
 	background: var(--background-modifier-border);
 }
@@ -247,9 +311,26 @@
 }
 
 .archery-score-buttons {
-	display: grid;
-	grid-template-columns: repeat(5, 1fr);
+	display: flex;
+	flex-direction: column;
 	gap: 0.4rem;
+}
+
+.archery-score-row {
+	display: grid;
+	gap: 0.4rem;
+}
+
+.archery-score-row-top {
+	grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+}
+
+.archery-score-row-bottom {
+	grid-template-columns: repeat(6, 1fr);
+}
+
+.archery-score-btn-wide {
+	font-size: 1.2em;
 }
 
 .archery-score-btn,
@@ -278,11 +359,6 @@
 .archery-score-actions {
 	display: flex;
 	gap: 0.4rem;
-}
-
-.archery-miss-btn {
-	flex: 0 0 4.5rem;
-	font-size: 1.1em;
 }
 
 .archery-undo-btn {
