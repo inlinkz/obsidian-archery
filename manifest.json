@@ -1,9 +1,9 @@
-{
-	"id": "obsidian-archery",
-	"name": "Obsidian Archery",
+﻿{
+	"id": "rchery",
+	"name": "RChery",
 	"version": "1.0.3",
 	"minAppVersion": "1.0.0",
-	"description": "Simple rchery scorecard, synced to markdown notes.",
-	"author": "aris@rcore.co",
+	"description": "Simple RChery scorecard, synced to markdown notes.",
+	"author": "aris@rchery.app",
 	"isDesktopOnly": false
 }

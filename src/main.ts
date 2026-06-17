@@ -1,5 +1,6 @@
 import { Plugin } from 'obsidian';
 import { ARCHERY_EXTENSION, createScorecardFile } from './services/markdownSync';
+import { registerArcheryEmbed } from './services/embedRegistry';
 import {
 	ArcherySettingTab,
 	DEFAULT_SETTINGS,
@@ -22,6 +23,8 @@ export default class ArcheryPlugin extends Plugin {
 		);
 
 		this.registerExtensions([ARCHERY_EXTENSION], VIEW_TYPE_SCORECARD);
+
+		registerArcheryEmbed(this);
 
 		this.addSettingTab(new ArcherySettingTab(this.app, this));
 
@@ -69,6 +72,14 @@ export default class ArcheryPlugin extends Plugin {
 	}
 
 	refreshScorecardViews(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SCORECARD)) {
+			if (leaf.view instanceof ScorecardView) {
+				leaf.view.onSettingsChanged();
+			}
+		}
+	}
+
+	refreshScorecardPresets(): void {
 		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SCORECARD)) {
 			if (leaf.view instanceof ScorecardView) {
 				leaf.view.onPresetsChanged();

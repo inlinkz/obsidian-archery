@@ -17,12 +17,17 @@ export const BUILTIN_PRESETS: LayoutPreset[] = [
 export interface ArcheryPluginSettings {
 	customPresets: LayoutPreset[];
 	defaultPresetName: string;
+	/** Pixels to shift the drag preview above the finger (score still at touch point). */
+	targetTouchOffsetY: number;
 }
 
 export const DEFAULT_SETTINGS: ArcheryPluginSettings = {
 	customPresets: [],
 	defaultPresetName: 'Outdoor',
+	targetTouchOffsetY: 48,
 };
+
+const TARGET_TOUCH_OFFSET_LIMITS = { min: 0, max: 200 } as const;
 
 function normalizePreset(preset: Partial<LayoutPreset>): LayoutPreset {
 	const config = normalizeConfig({
@@ -44,9 +49,14 @@ export function normalizeSettings(
 	const customPresets = Array.isArray(settings.customPresets)
 		? settings.customPresets.map((preset) => normalizePreset(preset))
 		: [];
+	const offset = settings.targetTouchOffsetY ?? DEFAULT_SETTINGS.targetTouchOffsetY;
 	return {
 		customPresets,
 		defaultPresetName: settings.defaultPresetName ?? DEFAULT_SETTINGS.defaultPresetName,
+		targetTouchOffsetY: Math.min(
+			TARGET_TOUCH_OFFSET_LIMITS.max,
+			Math.max(TARGET_TOUCH_OFFSET_LIMITS.min, Math.round(offset)),
+		),
 	};
 }
 
@@ -87,7 +97,7 @@ export class ArcherySettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Obsidian Archery' });
 		containerEl.createEl('p', {
-			text: 'Presets ("defaults") define named layouts that appear at the top of every scorecard. Each .archery file still stores its own dimensions in the markup.',
+			text: 'Presets ("defaults") define named layouts that appear at the top of every scorecard. Each .rchery file still stores its own dimensions in the markup.',
 			cls: 'setting-item-description',
 		});
 
@@ -105,6 +115,24 @@ export class ArcherySettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 			});
+
+		containerEl.createEl('h3', { text: 'Target face' });
+
+		new Setting(containerEl)
+			.setName('Touch offset')
+			.setDesc(
+				'Shifts the arrow and score this many pixels above your finger on the target so you can see where it lands on mobile.',
+			)
+			.addSlider((slider) =>
+				slider
+					.setLimits(TARGET_TOUCH_OFFSET_LIMITS.min, TARGET_TOUCH_OFFSET_LIMITS.max, 4)
+					.setValue(this.plugin.settings.targetTouchOffsetY)
+					.setDynamicTooltip()
+					.onChange(async (value) => {
+						this.plugin.settings.targetTouchOffsetY = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 
 		containerEl.createEl('h3', { text: 'Built-in presets' });
 		for (const preset of BUILTIN_PRESETS) {
@@ -138,6 +166,7 @@ export class ArcherySettingTab extends PluginSettingTab {
 						arrowsPerEnd: 6,
 					});
 					await this.plugin.saveSettings();
+					this.plugin.refreshScorecardPresets();
 					this.display();
 				}),
 		);
@@ -184,6 +213,7 @@ export class ArcherySettingTab extends PluginSettingTab {
 				.onClick(async () => {
 					this.plugin.settings.customPresets.splice(index, 1);
 					await this.plugin.saveSettings();
+					this.plugin.refreshScorecardPresets();
 					this.display();
 				}),
 		);

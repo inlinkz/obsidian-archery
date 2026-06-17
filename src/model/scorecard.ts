@@ -1,3 +1,5 @@
+import { roundCoord } from './targetScoring';
+
 export const DEFAULT_ENDS_PER_CARD = 6;
 export const DEFAULT_ARROWS_PER_END = 6;
 export const DEFAULT_CARDS_COUNT = 2;
@@ -5,6 +7,16 @@ export const DEFAULT_CARDS_COUNT = 2;
 export const MISS_SCORE = 0;
 
 export type ArrowScore = number | null;
+
+export interface ArrowShot {
+	score: ArrowScore;
+	x: number | null;
+	y: number | null;
+}
+
+export function emptyArrow(): ArrowShot {
+	return { score: null, x: null, y: null };
+}
 
 export interface SessionConfig {
 	endsPerCard: number;
@@ -80,7 +92,7 @@ export function applyScoreColorClass(el: HTMLElement, score: ArrowScore): void {
 }
 
 export interface Scorecard {
-	ends: ArrowScore[][];
+	ends: ArrowShot[][];
 }
 
 export interface Cursor {
@@ -97,7 +109,7 @@ export interface SessionState {
 export function createEmptyScorecard(config: SessionConfig): Scorecard {
 	return {
 		ends: Array.from({ length: config.endsPerCard }, () =>
-			Array.from<ArrowScore>({ length: config.arrowsPerEnd }).fill(null),
+			Array.from({ length: config.arrowsPerEnd }, () => emptyArrow()),
 		),
 	};
 }
@@ -112,12 +124,12 @@ export function createSessionState(config: SessionConfig = DEFAULT_CONFIG): Sess
 	};
 }
 
-export function endTotal(end: ArrowScore[]): number {
-	return end.reduce<number>((sum, score) => sum + (score ?? 0), 0);
+export function endTotal(end: ArrowShot[]): number {
+	return end.reduce<number>((sum, shot) => sum + (shot.score ?? 0), 0);
 }
 
-export function endIsComplete(end: ArrowScore[]): boolean {
-	return end.every((score) => score !== null);
+export function endIsComplete(end: ArrowShot[]): boolean {
+	return end.every((shot) => shot.score !== null);
 }
 
 export function cardGrandTotal(card: Scorecard): number {
@@ -137,7 +149,7 @@ export function nextCursor(state: SessionState): Cursor | null {
 			const arrows = scorecard.ends[end];
 			if (!arrows) continue;
 			for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
-				if (arrows[arrow] === null) {
+				if (arrows[arrow]?.score === null) {
 					return { card, end, arrow };
 				}
 			}
@@ -155,7 +167,7 @@ export function lastFilledCursor(state: SessionState): Cursor | null {
 			const arrows = scorecard.ends[end];
 			if (!arrows) continue;
 			for (let arrow = config.arrowsPerEnd - 1; arrow >= 0; arrow--) {
-				if (arrows[arrow] !== null) {
+				if (arrows[arrow]?.score !== null) {
 					return { card, end, arrow };
 				}
 			}
@@ -168,7 +180,7 @@ function cloneState(state: SessionState): SessionState {
 	return {
 		config: { ...state.config },
 		cards: state.cards.map((card) => ({
-			ends: card.ends.map((end) => [...end]),
+			ends: card.ends.map((end) => end.map((shot) => ({ ...shot }))),
 		})),
 	};
 }
@@ -182,9 +194,29 @@ export function applyScore(state: SessionState, value: number): SessionState {
 	if (!cursor) return state;
 
 	const next = cloneState(state);
-	const end = next.cards[cursor.card]?.ends[cursor.end];
-	if (!end) return state;
-	end[cursor.arrow] = value;
+	const shot = next.cards[cursor.card]?.ends[cursor.end]?.[cursor.arrow];
+	if (!shot) return state;
+	shot.score = value;
+	shot.x = null;
+	shot.y = null;
+	return next;
+}
+
+export function applyScoreAt(
+	state: SessionState,
+	x: number,
+	y: number,
+	score: number,
+): SessionState {
+	const cursor = nextCursor(state);
+	if (!cursor) return state;
+
+	const next = cloneState(state);
+	const shot = next.cards[cursor.card]?.ends[cursor.end]?.[cursor.arrow];
+	if (!shot) return state;
+	shot.score = score;
+	shot.x = roundCoord(x);
+	shot.y = roundCoord(y);
 	return next;
 }
 
@@ -193,9 +225,11 @@ export function undoLast(state: SessionState): SessionState {
 	if (!cursor) return state;
 
 	const next = cloneState(state);
-	const end = next.cards[cursor.card]?.ends[cursor.end];
-	if (!end) return state;
-	end[cursor.arrow] = null;
+	const shot = next.cards[cursor.card]?.ends[cursor.end]?.[cursor.arrow];
+	if (!shot) return state;
+	shot.score = null;
+	shot.x = null;
+	shot.y = null;
 	return next;
 }
 
@@ -222,13 +256,13 @@ export function resizeSessionState(
 
 	for (let cardIndex = 0; cardIndex < config.cardsCount; cardIndex++) {
 		const oldCard = state.cards[cardIndex];
-		const ends: ArrowScore[][] = [];
+		const ends: ArrowShot[][] = [];
 
 		for (let endIndex = 0; endIndex < config.endsPerCard; endIndex++) {
 			const oldEnd = oldCard?.ends[endIndex];
-			const row: ArrowScore[] = [];
+			const row: ArrowShot[] = [];
 			for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
-				row.push(oldEnd?.[arrow] ?? null);
+				row.push(oldEnd?.[arrow] ? { ...oldEnd[arrow]! } : emptyArrow());
 			}
 			ends.push(row);
 		}

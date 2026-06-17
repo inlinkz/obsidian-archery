@@ -2,6 +2,7 @@ import { FileView, Notice, WorkspaceLeaf, type TFile } from 'obsidian';
 import type ArcheryPlugin from '../main';
 import {
 	applyScore,
+	applyScoreAt,
 	applyScoreColorClass,
 	cardGrandTotal,
 	createSessionState,
@@ -24,6 +25,7 @@ import {
 	serializeSession,
 } from '../services/markdownSync';
 import { getAllPresets, type LayoutPreset } from '../settings';
+import { TargetFace } from './TargetFace';
 
 export const VIEW_TYPE_SCORECARD = 'obsidian-archery-scorecard';
 
@@ -34,6 +36,10 @@ interface CellRef {
 }
 
 interface EndTotalRef {
+	el: HTMLElement;
+}
+
+interface EndLabelRef {
 	el: HTMLElement;
 }
 
@@ -53,6 +59,11 @@ export class ScorecardView extends FileView {
 	private editContainer: HTMLElement | null = null;
 	private sourceEditor: HTMLTextAreaElement | null = null;
 	private scorePadEl: HTMLElement | null = null;
+	private targetToggleBtn: HTMLButtonElement | null = null;
+	private showTargetFace = false;
+	private targetFaces: TargetFace[] = [];
+	private endLabelRefs: EndLabelRef[][] = [];
+	private visibleEndsPerCard: Set<number>[] = [];
 
 	constructor(leaf: WorkspaceLeaf, plugin: ArcheryPlugin) {
 		super(leaf);
@@ -69,6 +80,12 @@ export class ScorecardView extends FileView {
 		}
 	}
 
+	onSettingsChanged(): void {
+		if (this.file && this.mode === 'view' && this.showTargetFace) {
+			this.refreshTargetFaces();
+		}
+	}
+
 	getDisplayText(): string {
 		return this.file?.basename ?? 'Archery scorecard';
 	}
@@ -81,6 +98,7 @@ export class ScorecardView extends FileView {
 		const content = await this.app.vault.read(file);
 		this.state = parseScorecardBlock(content) ?? createSessionState();
 		this.mode = 'view';
+		this.visibleEndsPerCard = [];
 		this.render();
 	}
 
@@ -102,6 +120,9 @@ export class ScorecardView extends FileView {
 		this.editContainer = null;
 		this.sourceEditor = null;
 		this.scorePadEl = null;
+		this.targetToggleBtn = null;
+		this.targetFaces = [];
+		this.endLabelRefs = [];
 	}
 
 	private render(): void {
@@ -148,16 +169,20 @@ export class ScorecardView extends FileView {
 
 	private renderViewMode(): void {
 		if (!this.viewContainer) return;
+		this.destroyTargetFaces();
 		this.viewContainer.empty();
 
 		const { config } = this.state;
 		this.cellRefs = Array.from({ length: config.cardsCount }, () => []);
 		this.endTotalRefs = Array.from({ length: config.cardsCount }, () => []);
+		this.endLabelRefs = Array.from({ length: config.cardsCount }, () => []);
+		this.ensureVisibleEnds();
 		this.grandTotalEls = [];
 		this.combinedTotalEl = null;
 
 		this.scrollBodyEl = this.viewContainer.createDiv({ cls: 'archery-scroll-body' });
 
+		this.renderTargetToggle(this.scrollBodyEl);
 		this.renderPresetPanel(this.scrollBodyEl);
 
 		const grids = this.scrollBodyEl.createDiv({
@@ -194,6 +219,104 @@ export class ScorecardView extends FileView {
 		undoBtn.addEventListener('click', () => this.handleUndo());
 
 		this.refreshAllCells();
+		if (this.showTargetFace) {
+			this.refreshEndLabels();
+		}
+	}
+
+	private renderTargetToggle(parent: HTMLElement): void {
+		const bar = parent.createDiv({ cls: 'archery-target-toggle-bar' });
+		this.targetToggleBtn = bar.createEl('button', {
+			cls: 'archery-target-toggle-btn',
+			text: 'Target face',
+		});
+		this.targetToggleBtn.toggleClass('archery-target-toggle-btn-active', this.showTargetFace);
+		this.targetToggleBtn.title = 'Show target face above each scorecard';
+		this.targetToggleBtn.addEventListener('click', () => {
+			this.showTargetFace = !this.showTargetFace;
+			if (this.showTargetFace) {
+				this.initVisibleEnds();
+			}
+			this.renderViewMode();
+		});
+	}
+
+	private ensureVisibleEnds(): void {
+		const { cardsCount } = this.state.config;
+		while (this.visibleEndsPerCard.length < cardsCount) {
+			this.visibleEndsPerCard.push(new Set());
+		}
+		this.visibleEndsPerCard.length = cardsCount;
+	}
+
+	private initVisibleEnds(): void {
+		this.ensureVisibleEnds();
+		const cursor = nextCursor(this.state);
+		for (let card = 0; card < this.state.config.cardsCount; card++) {
+			const set = this.visibleEndsPerCard[card]!;
+			if (set.size > 0) continue;
+			const end = cursor?.card === card ? cursor.end : 0;
+			set.add(end);
+		}
+	}
+
+	private syncVisibleEndsForCursor(): void {
+		if (!this.showTargetFace) return;
+		const cursor = nextCursor(this.state);
+		if (!cursor) return;
+		this.visibleEndsPerCard[cursor.card]?.add(cursor.end);
+	}
+
+	private toggleEndVisibility(cardIndex: number, endIndex: number): void {
+		if (!this.showTargetFace) return;
+		const set = this.visibleEndsPerCard[cardIndex];
+		if (!set) return;
+		if (set.has(endIndex)) {
+			set.delete(endIndex);
+		} else {
+			set.add(endIndex);
+		}
+		this.refreshEndLabels(cardIndex);
+		this.refreshTargetFaces();
+	}
+
+	private refreshEndLabels(cardIndex?: number): void {
+		const cards =
+			cardIndex === undefined
+				? Array.from({ length: this.state.config.cardsCount }, (_, i) => i)
+				: [cardIndex];
+
+		for (const card of cards) {
+			const visible = this.visibleEndsPerCard[card];
+			const labels = this.endLabelRefs[card];
+			if (!visible || !labels) continue;
+			for (let end = 0; end < labels.length; end++) {
+				const ref = labels[end];
+				if (!ref) continue;
+				const onTarget = visible.has(end);
+				ref.el.toggleClass('archery-end-on-target', onTarget);
+				ref.el.title = onTarget
+					? `End ${end + 1} shown on target — click to hide`
+					: `End ${end + 1} hidden on target — click to show`;
+			}
+		}
+	}
+
+	private refreshTargetFaces(): void {
+		const offset = this.plugin.settings.targetTouchOffsetY;
+		for (let cardIndex = 0; cardIndex < this.targetFaces.length; cardIndex++) {
+			const face = this.targetFaces[cardIndex];
+			if (!face) continue;
+			const visible = this.visibleEndsPerCard[cardIndex] ?? new Set();
+			face.update(this.state, visible, offset);
+		}
+	}
+
+	private destroyTargetFaces(): void {
+		for (const face of this.targetFaces) {
+			face.destroy();
+		}
+		this.targetFaces = [];
 	}
 
 	private renderPresetPanel(parent: HTMLElement): void {
@@ -253,6 +376,7 @@ export class ScorecardView extends FileView {
 		}
 
 		this.state = next;
+		this.visibleEndsPerCard = [];
 		this.renderConfigLabel();
 		this.syncEditBufferFromState();
 		this.renderViewMode();
@@ -342,6 +466,18 @@ export class ScorecardView extends FileView {
 		const section = parent.createDiv({ cls: 'archery-scorecard-section' });
 		section.createEl('h4', { text: `Scorecard ${cardIndex + 1}` });
 
+		if (this.showTargetFace) {
+			const targetWrap = section.createDiv({ cls: 'archery-target-wrap' });
+			const face = new TargetFace(targetWrap, {
+				cardIndex,
+				touchOffsetY: this.plugin.settings.targetTouchOffsetY,
+				onPlace: (x, y, score) => this.handleTargetPlace(x, y, score),
+			});
+			const visible = this.visibleEndsPerCard[cardIndex] ?? new Set();
+			face.update(this.state, visible, this.plugin.settings.targetTouchOffsetY);
+			this.targetFaces.push(face);
+		}
+
 		const grid = section.createDiv({ cls: 'archery-scorecard-grid' });
 
 		const headerRow = grid.createDiv({ cls: 'archery-grid-row archery-grid-header' });
@@ -358,10 +494,20 @@ export class ScorecardView extends FileView {
 		this.cellRefs[cardIndex] = [];
 		this.endTotalRefs[cardIndex] = [];
 
+		this.endLabelRefs[cardIndex] = [];
+
 		for (let end = 0; end < config.endsPerCard; end++) {
 			const row = grid.createDiv({ cls: 'archery-grid-row' });
 			row.style.gridTemplateColumns = gridColumnStyle(config.arrowsPerEnd);
-			row.createDiv({ cls: 'archery-cell archery-cell-label', text: String(end + 1) });
+			const endLabel = row.createDiv({
+				cls: 'archery-cell archery-cell-label',
+				text: String(end + 1),
+			});
+			if (this.showTargetFace) {
+				endLabel.addClass('archery-end-label-toggle');
+			}
+			endLabel.addEventListener('click', () => this.toggleEndVisibility(cardIndex, end));
+			this.endLabelRefs[cardIndex]![end] = { el: endLabel };
 
 			const arrowCells: CellRef[] = [];
 			for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
@@ -380,6 +526,12 @@ export class ScorecardView extends FileView {
 	private renderScorePad(): void {
 		if (!this.scorePadEl) return;
 		this.scorePadEl.empty();
+
+		if (this.showTargetFace) {
+			const missRow = this.scorePadEl.createDiv({ cls: 'archery-score-row archery-score-row-miss-only' });
+			this.createScoreButton(missRow, MISS_SCORE, 'archery-score-miss archery-score-btn-miss-only', 'Miss');
+			return;
+		}
 
 		const pad = this.scorePadEl.createDiv({ cls: 'archery-score-buttons' });
 
@@ -436,7 +588,8 @@ export class ScorecardView extends FileView {
 				for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
 					const ref = this.cellRefs[card]?.[end]?.[arrow];
 					if (!ref) continue;
-					const score = arrows[arrow] ?? null;
+					const shot = arrows[arrow];
+					const score = shot?.score ?? null;
 					ref.el.setText(formatScore(score));
 					ref.el.toggleClass('archery-cell-active', this.isActiveCell(card, end, arrow));
 					ref.el.toggleClass('archery-cell-filled', score !== null);
@@ -445,7 +598,7 @@ export class ScorecardView extends FileView {
 
 				const totalRef = this.endTotalRefs[card]?.[end];
 				if (totalRef) {
-					const hasAny = arrows.some((s) => s !== null);
+					const hasAny = arrows.some((shot) => shot.score !== null);
 					totalRef.el.setText(hasAny ? String(endTotal(arrows)) : '');
 					totalRef.el.toggleClass('archery-cell-complete', endIsComplete(arrows));
 				}
@@ -465,6 +618,23 @@ export class ScorecardView extends FileView {
 			const complete = cursor === null;
 			this.scorePadEl.toggleClass('archery-session-complete', complete);
 		}
+
+		this.syncVisibleEndsForCursor();
+		this.refreshEndLabels();
+		this.refreshTargetFaces();
+	}
+
+	private handleTargetPlace(x: number, y: number, score: number): void {
+		if (this.mode !== 'view' || !this.showTargetFace || !nextCursor(this.state)) return;
+
+		const wasEmpty = !hasAnyScore(this.state);
+		this.state = applyScoreAt(this.state, x, y, score);
+		if (wasEmpty) {
+			this.renderViewMode();
+		} else {
+			this.refreshAllCells();
+		}
+		void this.persistState();
 	}
 
 	private handleScore(value: number): void {

@@ -1,10 +1,10 @@
 # Obsidian Archery
 
-An Obsidian plugin for recording archery scores. Each scorecard is its own `.archery` note with **View** mode for button entry and **Edit** mode for raw markup.
+An Obsidian plugin for recording archery scores. Each scorecard is its own `.rchery` note with **View** mode for button entry and **Edit** mode for raw markup.
 
 ## Features
 
-- Dedicated `.archery` scorecard files (the file is the data source)
+- Dedicated `.rchery` scorecard files (the file is the data source)
 - **View mode** — two 6-end × 6-arrow grids with 1–10 button entry and Undo
 - **Edit mode** — edit the underlying markdown tables directly
 - Auto-calculated end totals and grand totals
@@ -23,7 +23,7 @@ For development, run `npm run dev` and symlink the project folder into your vaul
 
 ## Usage
 
-1. Click the **target** ribbon icon or run **New archery scorecard** to create a `Scorecard.archery` file.
+1. Click the **target** ribbon icon or run **New archery scorecard** to create a `Scorecard.rchery` file.
 2. The scorecard opens in **View** mode — press **1–10** to enter arrows in order (scorecard 1, then scorecard 2).
 3. Use **Undo** to remove the last arrow.
 4. Switch to **Edit** to view or change the raw markdown markup.
@@ -32,7 +32,7 @@ For development, run `npm run dev` and symlink the project folder into your vaul
 
 ## File format
 
-Each `.archery` file contains markdown tables between HTML comment markers:
+Each `.rchery` file contains markdown tables between HTML comment markers:
 
 ```markdown
 <!-- archery-scorecard:start -->

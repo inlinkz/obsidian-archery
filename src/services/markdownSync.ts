@@ -4,31 +4,62 @@ import type { App } from 'obsidian';
 import {
 	createSessionState,
 	DEFAULT_CONFIG,
+	emptyArrow,
 	MISS_SCORE,
 	normalizeConfig,
-	type ArrowScore,
+	type ArrowShot,
 	type SessionConfig,
 	type SessionState,
 } from '../model/scorecard';
+import { roundCoord } from '../model/targetScoring';
 
 export const MARKER_START = '<!-- archery-scorecard:start -->';
 export const MARKER_END = '<!-- archery-scorecard:end -->';
 export const CONFIG_PREFIX = '<!-- archery-config:';
-export const ARCHERY_EXTENSION = 'archery';
+export const ARCHERY_EXTENSION = 'rchery';
 
-function formatCell(score: ArrowScore): string {
-	if (score === null) return '';
-	if (score === MISS_SCORE) return 'M';
-	return String(score);
+const COORD_SUFFIX = /^(.+?)@(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/;
+
+function formatCoord(value: number): string {
+	return String(roundCoord(value));
 }
 
-function parseArrowCell(cell: string): ArrowScore {
+function formatCell(shot: ArrowShot): string {
+	if (shot.score === null) return '';
+	const scorePart = shot.score === MISS_SCORE ? 'M' : String(shot.score);
+	if (shot.x !== null && shot.y !== null) {
+		return `${scorePart}@${formatCoord(shot.x)},${formatCoord(shot.y)}`;
+	}
+	return scorePart;
+}
+
+function parseArrowCell(cell: string): ArrowShot {
 	const trimmed = cell.trim();
-	if (!trimmed) return null;
-	if (trimmed.toUpperCase() === 'M') return MISS_SCORE;
-	const value = Number.parseInt(trimmed, 10);
-	if (Number.isNaN(value) || value < MISS_SCORE || value > 10) return null;
-	return value;
+	if (!trimmed) return emptyArrow();
+
+	let scorePart = trimmed;
+	let x: number | null = null;
+	let y: number | null = null;
+	const coordMatch = trimmed.match(COORD_SUFFIX);
+	if (coordMatch) {
+		scorePart = coordMatch[1]!.trim();
+		x = Number.parseFloat(coordMatch[2]!);
+		y = Number.parseFloat(coordMatch[3]!);
+		if (Number.isNaN(x) || Number.isNaN(y)) {
+			x = null;
+			y = null;
+		}
+	}
+
+	if (scorePart.toUpperCase() === 'M') {
+		return { score: MISS_SCORE, x, y };
+	}
+
+	const value = Number.parseInt(scorePart, 10);
+	if (Number.isNaN(value) || value < MISS_SCORE || value > 10) {
+		return emptyArrow();
+	}
+	return { score: value, x, y };
 }
 
 function formatDateForFilename(date = new Date()): string {
@@ -66,12 +97,12 @@ function parseTableHeader(line: string): number | null {
 }
 
 function parseScorecardSection(section: string): {
-	ends: ArrowScore[][];
+	ends: ArrowShot[][];
 	arrowsPerEnd: number;
 } {
 	const lines = section.split('\n');
 	let arrowsPerEnd = 0;
-	const ends: ArrowScore[][] = [];
+	const ends: ArrowShot[][] = [];
 
 	for (const line of lines) {
 		if (!line.startsWith('|')) continue;
@@ -102,16 +133,16 @@ function parseScorecardSection(section: string): {
 }
 
 function padScorecard(
-	ends: ArrowScore[][],
+	ends: ArrowShot[][],
 	config: SessionConfig,
-): ArrowScore[][] {
-	const padded: ArrowScore[][] = [];
+): ArrowShot[][] {
+	const padded: ArrowShot[][] = [];
 
 	for (let endIndex = 0; endIndex < config.endsPerCard; endIndex++) {
 		const source = ends[endIndex] ?? [];
-		const row = Array.from<ArrowScore>({ length: config.arrowsPerEnd }).fill(null);
+		const row = Array.from({ length: config.arrowsPerEnd }, () => emptyArrow());
 		for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
-			row[arrow] = source[arrow] ?? null;
+			row[arrow] = source[arrow] ?? emptyArrow();
 		}
 		padded.push(row);
 	}
@@ -189,17 +220,17 @@ export function buildScorecardBlock(state: SessionState): string {
 		for (let endIndex = 0; endIndex < config.endsPerCard; endIndex++) {
 			const end = card?.ends[endIndex] ?? [];
 			const cells = Array.from({ length: config.arrowsPerEnd }, (_, arrow) =>
-				formatCell(end[arrow] ?? null),
+				formatCell(end[arrow] ?? emptyArrow()),
 			);
-			const total = end.reduce<number>((sum, score) => sum + (score ?? 0), 0);
-			const hasAny = end.some((score) => score !== null);
+			const total = end.reduce<number>((sum, shot) => sum + (shot.score ?? 0), 0);
+			const hasAny = end.some((shot) => shot.score !== null);
 			lines.push(
 				`| ${endIndex + 1} | ${cells.join(' | ')} | ${hasAny ? total : ''} |`,
 			);
 		}
 
 		const cardTotal = card?.ends.reduce(
-			(sum, end) => sum + end.reduce<number>((s, score) => s + (score ?? 0), 0),
+			(sum, end) => sum + end.reduce<number>((s, shot) => s + (shot.score ?? 0), 0),
 			0,
 		) ?? 0;
 		lines.push('');
@@ -220,7 +251,7 @@ function sessionGrandTotalFromState(state: SessionState): number {
 			sum +
 			card.ends.reduce(
 				(s, end) =>
-					s + end.reduce<number>((total, score) => total + (score ?? 0), 0),
+					s + end.reduce<number>((total, shot) => total + (shot.score ?? 0), 0),
 				0,
 			),
 		0,
