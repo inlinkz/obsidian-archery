@@ -1,4 +1,4 @@
-# Obsidian Archery
+# RChery for Obsidian
 
 An Obsidian plugin for recording archery scores. Each scorecard is its own `.rchery` note with **View** mode for button entry and **Edit** mode for raw markup.
 
@@ -17,7 +17,9 @@ npm install
 npm run build
 ```
 
-Copy `main.js`, `manifest.json`, and `styles.css` to `Vault/.obsidian/plugins/obsidian-archery/`, then enable the plugin in Obsidian settings.
+Copy `main.js`, `manifest.json`, and `styles.css` to `Vault/.obsidian/plugins/rchery/`, then enable the plugin in Obsidian settings.
+
+The folder name **must** match `id` in `manifest.json` (currently `rchery`).
 
 For development, run `npm run dev` and symlink the project folder into your vault plugins directory.
 

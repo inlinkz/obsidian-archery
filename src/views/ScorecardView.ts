@@ -1,4 +1,4 @@
-import { FileView, Notice, WorkspaceLeaf, type TFile } from 'obsidian';
+import { FileView, Notice, WorkspaceLeaf, setIcon, type TFile } from 'obsidian';
 import type ArcheryPlugin from '../main';
 import {
 	applyScore,
@@ -52,14 +52,13 @@ export class ScorecardView extends FileView {
 	private grandTotalEls: HTMLElement[] = [];
 	private combinedTotalEl: HTMLElement | null = null;
 	private headerEl: HTMLElement | null = null;
-	private viewModeBtn: HTMLButtonElement | null = null;
-	private editModeBtn: HTMLButtonElement | null = null;
+	private modeActionBtn: HTMLElement | null = null;
+	private targetActionBtn: HTMLElement | null = null;
 	private viewContainer: HTMLElement | null = null;
 	private scrollBodyEl: HTMLElement | null = null;
 	private editContainer: HTMLElement | null = null;
 	private sourceEditor: HTMLTextAreaElement | null = null;
 	private scorePadEl: HTMLElement | null = null;
-	private targetToggleBtn: HTMLButtonElement | null = null;
 	private showTargetFace = false;
 	private targetFaces: TargetFace[] = [];
 	private endLabelRefs: EndLabelRef[][] = [];
@@ -94,6 +93,39 @@ export class ScorecardView extends FileView {
 		return 'target';
 	}
 
+	async onOpen(): Promise<void> {
+		this.ensureModeAction();
+		this.ensureTargetAction();
+		this.updateModeUi();
+	}
+
+	private ensureModeAction(): void {
+		if (this.modeActionBtn) return;
+		this.modeActionBtn = this.addAction('code-glyph', 'Edit source', () => {
+			this.toggleMode();
+		});
+	}
+
+	private ensureTargetAction(): void {
+		if (this.targetActionBtn) return;
+		this.targetActionBtn = this.addAction('target', 'Show target face', () => {
+			this.toggleTargetFace();
+		});
+	}
+
+	private toggleMode(): void {
+		this.setMode(this.mode === 'view' ? 'edit' : 'view');
+	}
+
+	private toggleTargetFace(): void {
+		this.showTargetFace = !this.showTargetFace;
+		if (this.showTargetFace) {
+			this.initVisibleEnds();
+		}
+		this.renderViewMode();
+		this.updateModeUi();
+	}
+
 	async onLoadFile(file: TFile): Promise<void> {
 		const content = await this.app.vault.read(file);
 		this.state = parseScorecardBlock(content) ?? createSessionState();
@@ -113,14 +145,11 @@ export class ScorecardView extends FileView {
 		this.grandTotalEls = [];
 		this.combinedTotalEl = null;
 		this.headerEl = null;
-		this.viewModeBtn = null;
-		this.editModeBtn = null;
 		this.viewContainer = null;
 		this.scrollBodyEl = null;
 		this.editContainer = null;
 		this.sourceEditor = null;
 		this.scorePadEl = null;
-		this.targetToggleBtn = null;
 		this.targetFaces = [];
 		this.endLabelRefs = [];
 	}
@@ -132,18 +161,6 @@ export class ScorecardView extends FileView {
 		this.resetRefs();
 
 		this.headerEl = container.createDiv({ cls: 'archery-header' });
-
-		const toolbar = this.headerEl.createDiv({ cls: 'archery-toolbar' });
-		this.viewModeBtn = toolbar.createEl('button', {
-			cls: 'archery-mode-btn',
-			text: 'View',
-		});
-		this.editModeBtn = toolbar.createEl('button', {
-			cls: 'archery-mode-btn',
-			text: 'Edit',
-		});
-		this.viewModeBtn.addEventListener('click', () => this.setMode('view'));
-		this.editModeBtn.addEventListener('click', () => this.setMode('edit'));
 
 		this.headerEl.createEl('h3', { text: this.file?.basename ?? 'Archery Scorecard' });
 		this.renderConfigLabel();
@@ -182,7 +199,6 @@ export class ScorecardView extends FileView {
 
 		this.scrollBodyEl = this.viewContainer.createDiv({ cls: 'archery-scroll-body' });
 
-		this.renderTargetToggle(this.scrollBodyEl);
 		this.renderPresetPanel(this.scrollBodyEl);
 
 		const grids = this.scrollBodyEl.createDiv({
@@ -222,23 +238,6 @@ export class ScorecardView extends FileView {
 		if (this.showTargetFace) {
 			this.refreshEndLabels();
 		}
-	}
-
-	private renderTargetToggle(parent: HTMLElement): void {
-		const bar = parent.createDiv({ cls: 'archery-target-toggle-bar' });
-		this.targetToggleBtn = bar.createEl('button', {
-			cls: 'archery-target-toggle-btn',
-			text: 'Target face',
-		});
-		this.targetToggleBtn.toggleClass('archery-target-toggle-btn-active', this.showTargetFace);
-		this.targetToggleBtn.title = 'Show target face above each scorecard';
-		this.targetToggleBtn.addEventListener('click', () => {
-			this.showTargetFace = !this.showTargetFace;
-			if (this.showTargetFace) {
-				this.initVisibleEnds();
-			}
-			this.renderViewMode();
-		});
 	}
 
 	private ensureVisibleEnds(): void {
@@ -413,8 +412,23 @@ export class ScorecardView extends FileView {
 	}
 
 	private updateModeUi(): void {
-		this.viewModeBtn?.toggleClass('archery-mode-btn-active', this.mode === 'view');
-		this.editModeBtn?.toggleClass('archery-mode-btn-active', this.mode === 'edit');
+		if (this.modeActionBtn) {
+			const editing = this.mode === 'edit';
+			setIcon(this.modeActionBtn, editing ? 'layout' : 'code-glyph');
+			this.modeActionBtn.setAttribute(
+				'aria-label',
+				editing ? 'Scorecard view' : 'Edit source',
+			);
+		}
+		if (this.targetActionBtn) {
+			const inView = this.mode === 'view';
+			this.targetActionBtn.style.display = inView ? '' : 'none';
+			this.targetActionBtn.toggleClass('is-active', this.showTargetFace);
+			this.targetActionBtn.setAttribute(
+				'aria-label',
+				this.showTargetFace ? 'Hide target face' : 'Show target face',
+			);
+		}
 		this.viewContainer?.toggleClass('archery-hidden', this.mode !== 'view');
 		this.editContainer?.toggleClass('archery-hidden', this.mode !== 'edit');
 	}
