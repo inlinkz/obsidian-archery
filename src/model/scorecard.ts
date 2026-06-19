@@ -18,11 +18,47 @@ export function emptyArrow(): ArrowShot {
 	return { score: null, x: null, y: null };
 }
 
+export function shotHasPlacement(shot: ArrowShot | undefined): boolean {
+	return shot?.score !== null && shot.x !== null && shot.y !== null;
+}
+
 export interface SessionConfig {
 	endsPerCard: number;
 	arrowsPerEnd: number;
 	cardsCount: number;
+	roundType?: string;
 }
+
+export interface SessionStats {
+	arrows: number;
+	score: number;
+	tens: number;
+	nines: number;
+	eights: number;
+	sevens: number;
+	sixes: number;
+	fives: number;
+	fours: number;
+	threes: number;
+	twos: number;
+	ones: number;
+	misses: number;
+	average: number | null;
+}
+
+const SCORE_STAT_FIELDS: { score: number; key: keyof SessionStats; label: string }[] = [
+	{ score: 10, key: 'tens', label: '10' },
+	{ score: 9, key: 'nines', label: '9' },
+	{ score: 8, key: 'eights', label: '8' },
+	{ score: 7, key: 'sevens', label: '7' },
+	{ score: 6, key: 'sixes', label: '6' },
+	{ score: 5, key: 'fives', label: '5' },
+	{ score: 4, key: 'fours', label: '4' },
+	{ score: 3, key: 'threes', label: '3' },
+	{ score: 2, key: 'twos', label: '2' },
+	{ score: 1, key: 'ones', label: '1' },
+	{ score: MISS_SCORE, key: 'misses', label: 'M' },
+];
 
 export const DEFAULT_CONFIG: SessionConfig = {
 	endsPerCard: DEFAULT_ENDS_PER_CARD,
@@ -48,6 +84,7 @@ export const CONFIG_LIMITS = {
 export function normalizeConfig(
 	partial?: Partial<SessionConfig>,
 ): SessionConfig {
+	const roundType = partial?.roundType?.trim();
 	return {
 		endsPerCard: clamp(
 			partial?.endsPerCard ?? DEFAULT_ENDS_PER_CARD,
@@ -64,6 +101,7 @@ export function normalizeConfig(
 			CONFIG_LIMITS.cardsCount.min,
 			CONFIG_LIMITS.cardsCount.max,
 		),
+		...(roundType ? { roundType } : {}),
 	};
 }
 
@@ -138,6 +176,59 @@ export function cardGrandTotal(card: Scorecard): number {
 
 export function sessionGrandTotal(state: SessionState): number {
 	return state.cards.reduce((sum, card) => sum + cardGrandTotal(card), 0);
+}
+
+export function computeSessionStats(state: SessionState): SessionStats {
+	const scores: number[] = [];
+	for (const card of state.cards) {
+		for (const end of card.ends) {
+			for (const shot of end) {
+				if (shot.score !== null) {
+					scores.push(shot.score);
+				}
+			}
+		}
+	}
+
+	const count = (n: number) => scores.filter((score) => score === n).length;
+	const score = scores.reduce((sum, value) => sum + value, 0);
+
+	return {
+		arrows: scores.length,
+		score,
+		tens: count(10),
+		nines: count(9),
+		eights: count(8),
+		sevens: count(7),
+		sixes: count(6),
+		fives: count(5),
+		fours: count(4),
+		threes: count(3),
+		twos: count(2),
+		ones: count(1),
+		misses: count(MISS_SCORE),
+		average: scores.length > 0 ? score / scores.length : null,
+	};
+}
+
+export function formatSessionStatsLabel(
+	roundType: string,
+	stats: SessionStats,
+): string {
+	const parts = [roundType];
+	if (stats.arrows > 0) {
+		parts.push(`${stats.score} pts`, `${stats.arrows} arrows`);
+		for (const { key, label } of SCORE_STAT_FIELDS) {
+			const count = stats[key] as number;
+			if (count > 0) {
+				parts.push(`${count}×${label}`);
+			}
+		}
+		if (stats.average !== null) {
+			parts.push(`avg ${stats.average.toFixed(1)}`);
+		}
+	}
+	return parts.join(' · ');
 }
 
 export function nextCursor(state: SessionState): Cursor | null {

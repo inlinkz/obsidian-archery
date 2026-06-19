@@ -7,8 +7,10 @@ import {
 	emptyArrow,
 	MISS_SCORE,
 	normalizeConfig,
+	computeSessionStats,
 	type ArrowShot,
 	type SessionConfig,
+	type SessionStats,
 	type SessionState,
 } from '../model/scorecard';
 import { roundCoord } from '../model/targetScoring';
@@ -16,6 +18,7 @@ import { roundCoord } from '../model/targetScoring';
 export const MARKER_START = '<!-- archery-scorecard:start -->';
 export const MARKER_END = '<!-- archery-scorecard:end -->';
 export const CONFIG_PREFIX = '<!-- archery-config:';
+export const META_PREFIX = '<!-- archery-meta:';
 export const ARCHERY_EXTENSION = 'rchery';
 
 const COORD_SUFFIX = /^(.+?)@(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/;
@@ -86,6 +89,38 @@ export function parseConfigLine(line: string): SessionConfig | null {
 	}
 }
 
+export interface SessionMetaSnapshot extends SessionStats {
+	roundType: string;
+}
+
+export function buildSessionMeta(state: SessionState): SessionMetaSnapshot {
+	const stats = computeSessionStats(state);
+	return {
+		roundType: state.config.roundType ?? 'Custom',
+		...stats,
+	};
+}
+
+export function serializeMeta(state: SessionState): string {
+	return `${META_PREFIX} ${JSON.stringify(buildSessionMeta(state))} -->`;
+}
+
+export function parseMetaLine(line: string): SessionMetaSnapshot | null {
+	const trimmed = line.trim();
+	if (!trimmed.startsWith(META_PREFIX)) return null;
+	const json = trimmed.slice(META_PREFIX.length).replace(/-->\s*$/, '').trim();
+	try {
+		return JSON.parse(json) as SessionMetaSnapshot;
+	} catch {
+		return null;
+	}
+}
+
+function stripMetaComment(content: string): string {
+	const lines = content.split('\n');
+	return lines.filter((line) => !line.trim().startsWith(META_PREFIX)).join('\n');
+}
+
 function parseTableHeader(line: string): number | null {
 	if (!/\|\s*End\s*\|/i.test(line)) return null;
 	const parts = line
@@ -151,11 +186,12 @@ function padScorecard(
 }
 
 export function extractScorecardContent(content: string): string {
-	const markers = findMarkerBlock(content);
+	const withoutMeta = stripMetaComment(content);
+	const markers = findMarkerBlock(withoutMeta);
 	if (markers) {
-		return content.slice(markers.start, markers.end);
+		return withoutMeta.slice(markers.start, markers.end);
 	}
-	return content;
+	return withoutMeta;
 }
 
 export function parseScorecardBlock(content: string): SessionState | null {
@@ -259,7 +295,7 @@ function sessionGrandTotalFromState(state: SessionState): number {
 }
 
 export function serializeSession(state: SessionState): string {
-	return buildScorecardBlock(state);
+	return `${serializeMeta(state)}\n\n${buildScorecardBlock(state)}`;
 }
 
 export function findMarkerBlock(content: string): { start: number; end: number } | null {

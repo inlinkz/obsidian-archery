@@ -73,7 +73,28 @@ export function presetToConfig(preset: LayoutPreset): SessionConfig {
 		endsPerCard: preset.endsPerCard,
 		arrowsPerEnd: preset.arrowsPerEnd,
 		cardsCount: preset.cardsCount,
+		roundType: preset.name,
 	});
+}
+
+export function configMatchesPreset(
+	preset: LayoutPreset,
+	config: SessionConfig,
+): boolean {
+	return (
+		preset.cardsCount === config.cardsCount &&
+		preset.endsPerCard === config.endsPerCard &&
+		preset.arrowsPerEnd === config.arrowsPerEnd
+	);
+}
+
+export function resolveRoundType(
+	config: SessionConfig,
+	presets: LayoutPreset[],
+): string {
+	const stored = config.roundType?.trim();
+	if (stored) return stored;
+	return presets.find((p) => configMatchesPreset(p, config))?.name ?? 'Custom';
 }
 
 export function getDefaultPreset(settings: ArcheryPluginSettings): LayoutPreset {

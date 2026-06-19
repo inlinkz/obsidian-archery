@@ -10,6 +10,19 @@ An Obsidian plugin for recording archery scores. Each scorecard is its own `.rch
 - Auto-calculated end totals and grand totals
 - Scores persist in the file on every change
 
+## Optional dependencies (full functionality)
+
+RChery works on its own for scoring. For training stats, tables, and charts across your scorecards, install these community plugins:
+
+| Plugin | Repository | Purpose |
+|--------|------------|---------|
+| **Dataview** | [blacksmithgu/obsidian-dataview](https://github.com/blacksmithgu/obsidian-dataview) | Query `.rchery` files and aggregate session stats |
+| **Charts** | [phibr0/obsidian-charts](https://github.com/phibr0/obsidian-charts) | Interactive charts from Dataview results |
+
+In Community plugins, search for **Dataview** and **Charts** by **phibr0** (not Charts View or similar). Enable **JavaScript queries** in Dataview settings.
+
+See [`docs/archery-stats-dashboard.md`](docs/archery-stats-dashboard.md) for a ready-to-copy stats dashboard note.
+
 ## Installation
 
 ```bash

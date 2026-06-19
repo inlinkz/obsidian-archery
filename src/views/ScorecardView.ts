@@ -15,6 +15,7 @@ import {
 	nextCursor,
 	resizeSessionState,
 	scoreColorClass,
+	shotHasPlacement,
 	sessionGrandTotal,
 	undoLast,
 	type SessionConfig,
@@ -361,11 +362,20 @@ export class ScorecardView extends FileView {
 			cardsCount: preset.cardsCount,
 			endsPerCard: preset.endsPerCard,
 			arrowsPerEnd: preset.arrowsPerEnd,
+			roundType: preset.name,
 		});
 	}
 
 	private applyLayoutChange(partial: Partial<SessionConfig>): void {
-		const next = resizeSessionState(this.state, partial);
+		const presets = getAllPresets(this.plugin.settings);
+		const roundType =
+			partial.roundType ??
+			presets.find((preset) =>
+				this.presetMatches(preset, { ...this.state.config, ...partial }),
+			)?.name ??
+			'Custom';
+
+		const next = resizeSessionState(this.state, { ...partial, roundType });
 		if (
 			next.config.endsPerCard === this.state.config.endsPerCard &&
 			next.config.arrowsPerEnd === this.state.config.arrowsPerEnd &&
@@ -607,6 +617,7 @@ export class ScorecardView extends FileView {
 					ref.el.setText(formatScore(score));
 					ref.el.toggleClass('archery-cell-active', this.isActiveCell(card, end, arrow));
 					ref.el.toggleClass('archery-cell-filled', score !== null);
+					ref.el.toggleClass('archery-cell-placed', shotHasPlacement(shot));
 					applyScoreColorClass(ref.el, score);
 				}
 

@@ -93,7 +93,8 @@ export default class ArcheryPlugin extends Plugin {
 	}
 
 	async createAndOpenScorecard(): Promise<void> {
-		const config = presetToConfig(getDefaultPreset(this.settings));
+		const preset = getDefaultPreset(this.settings);
+		const config = presetToConfig(preset);
 		const file = await createScorecardFile(this.app, config);
 		if (!file) return;
 
