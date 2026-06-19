@@ -11,14 +11,30 @@
             "id": "44480648d18d6a50",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "obsidian-archery-scorecard",
               "state": {
-                "file": "archery-stats-dashboard.md",
-                "mode": "source",
-                "source": false
+                "file": "Scorecard 2026-06-19 09-54.rchery"
               },
-              "icon": "lucide-file",
-              "title": "archery-stats-dashboard"
+              "icon": "target",
+              "title": "Scorecard 2026-06-19 09-54"
+            }
+          }
+        ]
+      },
+      {
+        "id": "b6128dc51d4d0ab6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "05ac08ae17ceec65",
+            "type": "leaf",
+            "state": {
+              "type": "obsidian-archery-scorecard",
+              "state": {
+                "file": "Scorecard 2026-06-19 10-51.rchery"
+              },
+              "icon": "target",
+              "title": "Scorecard 2026-06-19 10-51"
             }
           }
         ]
@@ -184,12 +200,13 @@
   },
   "active": "44480648d18d6a50",
   "lastOpenFiles": [
-    "Scorecard 2026-06-19 14-55.rchery",
     "Scorecard 2026-06-19 10-51.rchery",
     "Scorecard 2026-06-19 09-54.rchery",
+    "Scorecard 2026-06-18 22-44.rchery",
+    "archery-stats-dashboard.md",
+    "Scorecard 2026-06-19 14-55.rchery",
     "Scorecard 2026-06-19 11-29.rchery",
     "Canvas for rchery.canvas",
-    "archery-stats-dashboard.md",
     "Scorecard 2026-06-19 11-30.rchery",
     "Charts of rchery.md",
     "Welcome.md"
