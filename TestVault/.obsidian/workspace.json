@@ -4,37 +4,19 @@
     "type": "split",
     "children": [
       {
-        "id": "5cba7802ea0bd4af",
+        "id": "54e67ef0fdc0cb67",
         "type": "tabs",
         "children": [
           {
-            "id": "44480648d18d6a50",
+            "id": "d576c5a1732738b8",
             "type": "leaf",
             "state": {
               "type": "obsidian-archery-scorecard",
               "state": {
-                "file": "Scorecard 2026-06-19 09-54.rchery"
+                "file": "Scorecard 2026-06-19 14-55.rchery"
               },
               "icon": "target",
-              "title": "Scorecard 2026-06-19 09-54"
-            }
-          }
-        ]
-      },
-      {
-        "id": "b6128dc51d4d0ab6",
-        "type": "tabs",
-        "children": [
-          {
-            "id": "05ac08ae17ceec65",
-            "type": "leaf",
-            "state": {
-              "type": "obsidian-archery-scorecard",
-              "state": {
-                "file": "Scorecard 2026-06-19 10-51.rchery"
-              },
-              "icon": "target",
-              "title": "Scorecard 2026-06-19 10-51"
+              "title": "Scorecard 2026-06-19 14-55"
             }
           }
         ]
@@ -198,10 +180,10 @@
       "rchery:New archery scorecard": false
     }
   },
-  "active": "44480648d18d6a50",
+  "active": "d576c5a1732738b8",
   "lastOpenFiles": [
-    "Scorecard 2026-06-19 10-51.rchery",
     "Scorecard 2026-06-19 09-54.rchery",
+    "Scorecard 2026-06-19 10-51.rchery",
     "Scorecard 2026-06-18 22-44.rchery",
     "archery-stats-dashboard.md",
     "Scorecard 2026-06-19 14-55.rchery",
