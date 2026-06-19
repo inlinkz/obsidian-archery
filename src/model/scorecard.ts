@@ -19,7 +19,7 @@ export function emptyArrow(): ArrowShot {
 }
 
 export function shotHasPlacement(shot: ArrowShot | undefined): boolean {
-	return shot?.score !== null && shot.x !== null && shot.y !== null;
+	return shot !== undefined && shot.score !== null && shot.x !== null && shot.y !== null;
 }
 
 export interface SessionConfig {

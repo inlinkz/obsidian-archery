@@ -4,17 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "b770302589b75207",
+        "id": "5cba7802ea0bd4af",
         "type": "tabs",
         "children": [
           {
-            "id": "4abddc21fc44ba74",
+            "id": "44480648d18d6a50",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "archery-stats-dashboard.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "archery-stats-dashboard"
             }
           }
         ]
@@ -178,14 +182,14 @@
       "rchery:New archery scorecard": false
     }
   },
-  "active": "4abddc21fc44ba74",
+  "active": "44480648d18d6a50",
   "lastOpenFiles": [
-    "Scorecard 2026-06-19 11-29.rchery",
-    "archery-stats-dashboard.md",
     "Canvas for rchery.canvas",
-    "Scorecard 2026-06-19 11-30.rchery",
     "Scorecard 2026-06-19 10-51.rchery",
     "Scorecard 2026-06-19 09-54.rchery",
+    "Scorecard 2026-06-19 11-30.rchery",
+    "Scorecard 2026-06-19 11-29.rchery",
+    "archery-stats-dashboard.md",
     "Charts of rchery.md",
     "Welcome.md"
   ]
