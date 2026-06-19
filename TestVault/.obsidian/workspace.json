@@ -1,0 +1,199 @@
+{
+  "main": {
+    "id": "827c3ff1e16aaa9f",
+    "type": "split",
+    "children": [
+      {
+        "id": "52643f3a2898c773",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "139ccef4fc16dfad",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Canvas for rchery.canvas",
+                "viewState": {
+                  "x": -620,
+                  "y": -233.5,
+                  "zoom": 0
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "Canvas for rchery"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "f35761f9fb76f0eb",
+    "type": "split",
+    "children": [
+      {
+        "id": "53fe6b2df52d77c4",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "684285d01c60ac29",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "91b8a248a71f5206",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "18c7fff63e5fdc0d",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "a714c598fd5532fe",
+    "type": "split",
+    "children": [
+      {
+        "id": "32d55a90ad75d8a2",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "00912ffec1f9ef22",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "12997ae16ed8e348",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "5c8738db4342a67e",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "ad4c43973ef70baf",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "439c75004c267422",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Charts of rchery.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Charts of rchery"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false,
+      "rchery:New archery scorecard": false
+    }
+  },
+  "active": "684285d01c60ac29",
+  "lastOpenFiles": [
+    "Canvas for rchery.canvas",
+    "Charts of rchery.md",
+    "archery-stats-dashboard.md",
+    "Scorecard 2026-06-19 11-30.rchery",
+    "Scorecard 2026-06-19 11-29.rchery",
+    "Scorecard 2026-06-19 10-51.rchery",
+    "Scorecard 2026-06-19 09-54.rchery",
+    "Welcome.md"
+  ]
+}

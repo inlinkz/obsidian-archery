@@ -1,0 +1,582 @@
+.archery-scorecard-view {
+	display: flex;
+	flex-direction: column;
+	padding: 0.75rem;
+	height: 100%;
+	overflow: hidden;
+	gap: 0;
+}
+
+.archery-header {
+	flex-shrink: 0;
+}
+
+.archery-header h3 {
+	margin: 0 0 0.25rem;
+}
+
+.archery-hidden {
+	display: none !important;
+}
+
+.archery-view-container,
+.archery-edit-container {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+.archery-view-container {
+	gap: 0;
+}
+
+.archery-scroll-body {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	padding-bottom: 0.5rem;
+	container-type: inline-size;
+	container-name: archery-scroll;
+}
+
+.archery-sticky-footer {
+	flex-shrink: 0;
+	border-top: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	padding: 0.5rem 0 0;
+	box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.08);
+	z-index: 2;
+}
+
+/*
+ * On mobile, Obsidian draws a bottom navigation bar. Reserve space for it
+ * (plus the device safe-area inset) so the score pad / undo aren't hidden.
+ */
+.is-mobile .archery-sticky-footer {
+	padding-bottom: calc(
+		var(--archery-mobile-navbar-height, 48px) + env(safe-area-inset-bottom, 0px)
+	);
+}
+
+/* When the mobile navbar is hidden (e.g. fullscreen), only honor the inset. */
+.is-mobile.is-hidden-frameless .archery-sticky-footer {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.archery-partial-totals {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	padding-bottom: 0.5rem;
+	font-size: 0.85em;
+}
+
+.archery-partial-total-item {
+	display: flex;
+	align-items: baseline;
+	gap: 0.35rem;
+}
+
+.archery-partial-total-label {
+	color: var(--text-muted);
+}
+
+.archery-partial-total-value {
+	font-weight: 700;
+	color: var(--text-normal);
+}
+
+.archery-grand-total-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.35rem 0 0.5rem;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.archery-grand-total-h1 {
+	margin: 0;
+	padding: 0;
+	border: none;
+	font-size: 1.5rem;
+	font-weight: 700;
+	line-height: 1.2;
+	display: flex;
+	align-items: baseline;
+	gap: 0.6rem;
+	color: var(--text-normal);
+	flex: 1;
+	min-width: 0;
+}
+
+.archery-grand-total-label {
+	font-size: 0.65em;
+	font-weight: 600;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.archery-grand-total-h1 .archery-grand-total-value {
+	font-size: 1em;
+	font-weight: 800;
+	color: var(--interactive-accent);
+}
+
+.archery-edit-container {
+	gap: 1rem;
+}
+
+.archery-edit-hint {
+	font-size: 0.85em;
+	color: var(--text-muted);
+}
+
+.archery-source-editor {
+	flex: 1;
+	min-height: 320px;
+	width: 100%;
+	resize: vertical;
+	padding: 0.75rem;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-size: 0.85em;
+	line-height: 1.5;
+}
+
+.archery-note-label {
+	font-size: 0.85em;
+	color: var(--text-muted);
+	word-break: break-word;
+}
+
+.archery-preset-panel {
+	padding: 0.1rem 0;
+}
+
+.archery-preset-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}
+
+.archery-preset-chip {
+	padding: 0.3rem 0.7rem;
+	border-radius: 999px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: 0.85em;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.1s ease, color 0.1s ease;
+}
+
+.archery-preset-chip:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.archery-preset-chip-active {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.archery-preset-chip-custom {
+	cursor: default;
+	font-style: italic;
+	font-weight: 500;
+	background: transparent;
+}
+
+.archery-preset-chip-custom:hover {
+	background: transparent;
+	color: var(--text-muted);
+}
+
+.archery-grids {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 1.25rem;
+	align-items: start;
+}
+
+.archery-scorecard-section {
+	min-width: 0;
+}
+
+/* Side by side when the pane is wide enough (desktop / wide split) */
+@container archery-scroll (min-width: 34rem) {
+	.archery-grids.archery-grids--multi {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	}
+}
+
+/* Fallback for browsers without container queries */
+@media (min-width: 48rem) {
+	.archery-grids.archery-grids--multi {
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	}
+}
+
+.archery-scorecard-section h4 {
+	margin: 0 0 0.5rem;
+	font-size: 0.95em;
+}
+
+.archery-scorecard-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.archery-grid-row {
+	display: grid;
+	gap: 2px;
+	background: var(--background-modifier-border);
+}
+
+.archery-grid-header {
+	background: var(--background-secondary);
+	font-weight: 600;
+	font-size: 0.8em;
+}
+
+.archery-cell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 2rem;
+	background: var(--background-primary);
+	font-size: 0.9em;
+	padding: 0.15rem;
+}
+
+.archery-cell-label {
+	font-weight: 600;
+	background: var(--background-secondary);
+	font-size: 0.8em;
+}
+
+.archery-end-label-toggle {
+	cursor: pointer;
+	user-select: none;
+}
+
+.archery-end-label-toggle:hover {
+	background: var(--background-modifier-hover);
+}
+
+.archery-end-label-toggle.archery-end-on-target {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.archery-cell-header {
+	background: var(--background-secondary);
+	font-size: 0.75em;
+}
+
+.archery-cell-score {
+	cursor: default;
+	color: var(--text-muted);
+}
+
+.archery-cell-score.archery-cell-filled {
+	color: var(--text-normal);
+	font-weight: 600;
+}
+
+.archery-cell-score.archery-cell-placed {
+	position: relative;
+}
+
+.archery-cell-score.archery-cell-placed::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 1.45rem;
+	height: 1.45rem;
+	border-radius: 50%;
+	box-shadow: 0 0 0 1px var(--text-muted);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+}
+
+.archery-cell-score.archery-cell-active:not(.archery-cell-filled) {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: -2px;
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.archery-cell-total {
+	font-weight: 600;
+	background: var(--background-secondary-alt, var(--background-secondary));
+}
+
+.archery-cell-total.archery-cell-complete {
+	color: var(--interactive-accent);
+}
+
+.archery-footer {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	font-size: 0.9em;
+}
+
+.archery-grand-total-row {
+	display: flex;
+	gap: 0.25rem;
+	font-size: 0.9em;
+}
+
+.archery-grand-total-value {
+	font-weight: 700;
+}
+
+.archery-score-pad {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.25rem 0 0.5rem;
+	background: var(--background-primary);
+}
+
+.archery-score-yellow {
+	background: #f4c430 !important;
+	color: #1a1a1a !important;
+	border-color: #c9a000 !important;
+}
+
+.archery-score-red {
+	background: #e53935 !important;
+	color: #fff !important;
+	border-color: #b71c1c !important;
+}
+
+.archery-score-blue {
+	background: #1e88e5 !important;
+	color: #fff !important;
+	border-color: #1565c0 !important;
+}
+
+.archery-score-grey {
+	background: #9e9e9e !important;
+	color: #1a1a1a !important;
+	border-color: #757575 !important;
+}
+
+.archery-score-white {
+	background: #f5f5f5 !important;
+	color: #1a1a1a !important;
+	border-color: #bdbdbd !important;
+}
+
+.archery-score-miss {
+	background: #1a1a1a !important;
+	color: #fff !important;
+	border-color: #000 !important;
+}
+
+.archery-cell-score.archery-score-yellow,
+.archery-cell-score.archery-score-red,
+.archery-cell-score.archery-score-blue,
+.archery-cell-score.archery-score-grey,
+.archery-cell-score.archery-score-white,
+.archery-cell-score.archery-score-miss {
+	font-weight: 700;
+}
+
+.archery-cell-score.archery-cell-active.archery-score-yellow,
+.archery-cell-score.archery-cell-active.archery-score-red,
+.archery-cell-score.archery-cell-active.archery-score-blue,
+.archery-cell-score.archery-cell-active.archery-score-grey,
+.archery-cell-score.archery-cell-active.archery-score-white,
+.archery-cell-score.archery-cell-active.archery-score-miss {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: -2px;
+}
+
+.archery-score-buttons {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.archery-score-row {
+	display: grid;
+	grid-template-columns: repeat(6, 1fr);
+	gap: 0.4rem;
+}
+
+/* "10" spans two columns, so it is double width plus the gap between them.
+   Its right edge lines up with the second button in the row below. */
+.archery-score-btn-wide {
+	grid-column: span 2;
+	font-size: 1.2em;
+}
+
+.archery-score-btn {
+	min-height: 44px;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 1.1em;
+	font-weight: 600;
+	cursor: pointer;
+	transition: filter 0.1s ease;
+}
+
+.archery-score-btn:hover {
+	filter: brightness(1.08);
+}
+
+.archery-score-btn:active {
+	filter: brightness(0.92);
+}
+
+.archery-undo-btn {
+	flex-shrink: 0;
+	min-height: auto;
+	padding: 0.2rem 0.5rem;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-muted);
+	font-size: 0.8em;
+	font-weight: 500;
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.archery-undo-btn:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+	text-decoration: none;
+}
+
+.archery-session-complete .archery-score-buttons,
+.archery-session-complete .archery-score-row-miss-only {
+	opacity: 0.5;
+	pointer-events: none;
+}
+
+.archery-target-wrap {
+	margin-bottom: 0.75rem;
+}
+
+.archery-target-face {
+	max-width: min(100%, 20rem);
+	margin: 0 auto 0.5rem;
+}
+
+.archery-target-face-inactive {
+	opacity: 0.55;
+}
+
+.archery-target-svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.archery-target-ring {
+	stroke: rgba(0, 0, 0, 0.35);
+	stroke-width: 0.06;
+}
+
+.archery-target-yellow {
+	fill: #f4c430;
+}
+
+.archery-target-red {
+	fill: #e53935;
+}
+
+.archery-target-blue {
+	fill: #1e88e5;
+}
+
+.archery-target-grey {
+	fill: #9e9e9e;
+}
+
+.archery-target-white {
+	fill: #f5f5f5;
+}
+
+.archery-target-border {
+	fill: none;
+	stroke: #1a1a1a;
+	stroke-width: 0.12;
+}
+
+.archery-target-marker-dot {
+	fill: #1a1a1a;
+	stroke: #ffffff;
+	stroke-width: 0.08;
+}
+
+.archery-target-marker-label {
+	fill: #1a1a1a;
+	font-size: 0.85px;
+	font-weight: 700;
+	font-family: var(--font-interface);
+}
+
+.archery-target-marker-preview {
+	opacity: 0.7;
+}
+
+.archery-target-marker-preview .archery-target-marker-dot {
+	fill: var(--interactive-accent);
+	stroke: #ffffff;
+}
+
+.archery-embed {
+	padding: 0.5rem 0;
+}
+
+.archery-embed-title {
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+}
+
+.archery-embed-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.archery-embed-footer,
+.archery-embed-card-total {
+	font-size: 0.9em;
+	font-weight: 600;
+}
+
+.archery-embed-error {
+	color: var(--text-error);
+	font-size: 0.9em;
+}
+
+.archery-scorecard-grid--compact .archery-cell {
+	min-height: 1.6rem;
+	font-size: 0.8em;
+}

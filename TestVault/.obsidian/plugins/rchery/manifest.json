@@ -1,0 +1,9 @@
+{
+	"id": "rchery",
+	"name": "RChery",
+	"version": "1.0.4",
+	"minAppVersion": "1.0.4",
+	"description": "Simple RChery scorecard, synced to markdown notes.",
+	"author": "aris@rchery.app",
+	"isDesktopOnly": false
+}
