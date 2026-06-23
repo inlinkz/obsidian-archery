@@ -42,7 +42,8 @@ export function collectTargetShots(state: SessionState): ArrowShot[] {
 
 export function renderReadonlyTarget(parent: HTMLElement, shots: ArrowShot[]): void {
 	const wrap = parent.createDiv({ cls: 'archery-target-face archery-target-face-readonly' });
-	const svg = activeDocument.createElementNS(SVG_NS, 'svg');
+	const doc = wrap.ownerDocument;
+	const svg = doc.createElementNS(SVG_NS, 'svg');
 	svg.setAttribute(
 		'viewBox',
 		`${-TARGET_RADIUS - 1} ${-TARGET_RADIUS - 1} ${TARGET_RADIUS * 2 + 2} ${TARGET_RADIUS * 2 + 2}`,
@@ -51,7 +52,7 @@ export function renderReadonlyTarget(parent: HTMLElement, shots: ArrowShot[]): v
 	wrap.appendChild(svg);
 
 	for (let score = 1; score <= 10; score++) {
-		const circle = activeDocument.createElementNS(SVG_NS, 'circle');
+		const circle = doc.createElementNS(SVG_NS, 'circle');
 		circle.setAttribute('cx', '0');
 		circle.setAttribute('cy', '0');
 		circle.setAttribute('r', String(11 - score));
@@ -59,33 +60,33 @@ export function renderReadonlyTarget(parent: HTMLElement, shots: ArrowShot[]): v
 		svg.appendChild(circle);
 	}
 
-	const border = activeDocument.createElementNS(SVG_NS, 'circle');
+	const border = doc.createElementNS(SVG_NS, 'circle');
 	border.setAttribute('cx', '0');
 	border.setAttribute('cy', '0');
 	border.setAttribute('r', String(TARGET_RADIUS));
 	border.setAttribute('class', 'archery-target-border');
 	svg.appendChild(border);
 
-	const markersLayer = activeDocument.createElementNS(SVG_NS, 'g');
+	const markersLayer = doc.createElementNS(SVG_NS, 'g');
 	markersLayer.setAttribute('class', 'archery-target-markers');
 	svg.appendChild(markersLayer);
 
 	for (const shot of shots) {
-		markersLayer.appendChild(createMarker(shot));
+		markersLayer.appendChild(createMarker(doc, shot));
 	}
 }
 
-function createMarker(shot: ArrowShot): SVGGElement {
-	const group = activeDocument.createElementNS(SVG_NS, 'g');
+function createMarker(doc: Document, shot: ArrowShot): SVGGElement {
+	const group = doc.createElementNS(SVG_NS, 'g');
 	group.setAttribute('class', 'archery-target-marker');
 	group.setAttribute('transform', `translate(${shot.x}, ${-shot.y!})`);
 
-	const dot = activeDocument.createElementNS(SVG_NS, 'circle');
+	const dot = doc.createElementNS(SVG_NS, 'circle');
 	dot.setAttribute('r', '0.35');
 	dot.setAttribute('class', 'archery-target-marker-dot');
 	group.appendChild(dot);
 
-	const label = activeDocument.createElementNS(SVG_NS, 'text');
+	const label = doc.createElementNS(SVG_NS, 'text');
 	label.setAttribute('y', '-0.55');
 	label.setAttribute('text-anchor', 'middle');
 	label.setAttribute('class', 'archery-target-marker-label');
