@@ -211,6 +211,22 @@ export function endTotal(end: ArrowShot[]): number {
 	return end.reduce<number>((sum, shot) => sum + (shot.score ?? 0), 0);
 }
 
+export function runningEndTotal(card: Scorecard, endIndex: number): number {
+	let sum = 0;
+	for (let i = 0; i <= endIndex; i++) {
+		sum += endTotal(card.ends[i] ?? []);
+	}
+	return sum;
+}
+
+export function formatEndScoreDisplay(card: Scorecard, endIndex: number): string {
+	const arrows = card.ends[endIndex];
+	if (!arrows?.some((shot) => shot.score !== null)) return '';
+	const endSum = endTotal(arrows);
+	const running = runningEndTotal(card, endIndex);
+	return `${endSum}/${running}`;
+}
+
 export function endIsComplete(end: ArrowShot[]): boolean {
 	return end.every((shot) => shot.score !== null);
 }
@@ -381,7 +397,7 @@ export function isValidArrowScore(value: number): boolean {
 }
 
 export function gridColumnStyle(arrowsPerEnd: number): string {
-	return `2.5rem repeat(${arrowsPerEnd}, minmax(1.5rem, 1fr)) 3rem`;
+	return `2.5rem 2rem repeat(${arrowsPerEnd}, minmax(1.5rem, 1fr)) 4.5rem`;
 }
 
 export function resizeSessionState(

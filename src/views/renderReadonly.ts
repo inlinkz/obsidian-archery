@@ -2,7 +2,7 @@ import {
 	applyScoreColorClass,
 	cardGrandTotal,
 	endIsComplete,
-	endTotal,
+	formatEndScoreDisplay,
 	formatScore,
 	gridColumnStyle,
 	sessionGrandTotal,
@@ -129,6 +129,7 @@ function renderReadonlyScorecard(
 	const headerRow = grid.createDiv({ cls: 'archery-grid-row archery-grid-header' });
 	headerRow.style.gridTemplateColumns = gridColumnStyle(config.arrowsPerEnd);
 	headerRow.createDiv({ cls: 'archery-cell archery-cell-label', text: 'End' });
+	headerRow.createDiv({ cls: 'archery-cell archery-cell-header archery-cell-note-header' });
 	for (let arrow = 1; arrow <= config.arrowsPerEnd; arrow++) {
 		headerRow.createDiv({
 			cls: 'archery-cell archery-cell-header',
@@ -144,6 +145,7 @@ function renderReadonlyScorecard(
 		const row = grid.createDiv({ cls: 'archery-grid-row' });
 		row.style.gridTemplateColumns = gridColumnStyle(config.arrowsPerEnd);
 		row.createDiv({ cls: 'archery-cell archery-cell-label', text: String(end + 1) });
+		row.createDiv({ cls: 'archery-cell archery-cell-note' });
 
 		for (let arrow = 0; arrow < config.arrowsPerEnd; arrow++) {
 			const shot = arrows[arrow];
@@ -158,7 +160,7 @@ function renderReadonlyScorecard(
 
 		const hasAny = arrows.some((shot) => shot.score !== null);
 		const totalCell = row.createDiv({ cls: 'archery-cell archery-cell-total' });
-		totalCell.setText(hasAny ? String(endTotal(arrows)) : '');
+		totalCell.setText(hasAny ? formatEndScoreDisplay(scorecard, end) : '');
 		if (endIsComplete(arrows)) {
 			totalCell.addClass('archery-cell-complete');
 		}

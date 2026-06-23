@@ -9,6 +9,7 @@ import {
 	createSessionState,
 	endIsComplete,
 	endTotal,
+	formatEndScoreDisplay,
 	formatScore,
 	getEndNote,
 	gridColumnStyle,
@@ -538,6 +539,10 @@ export class ScorecardView extends FileView {
 		const headerRow = grid.createDiv({ cls: 'archery-grid-row archery-grid-header' });
 		headerRow.style.gridTemplateColumns = gridColumnStyle(config.arrowsPerEnd);
 		headerRow.createDiv({ cls: 'archery-cell archery-cell-label', text: 'End' });
+		const noteHeader = headerRow.createDiv({
+			cls: 'archery-cell archery-cell-header archery-cell-note-header',
+		});
+		setIcon(noteHeader.createSpan(), 'sticky-note');
 		for (let arrow = 1; arrow <= config.arrowsPerEnd; arrow++) {
 			headerRow.createDiv({
 				cls: 'archery-cell archery-cell-header',
@@ -555,8 +560,13 @@ export class ScorecardView extends FileView {
 			const row = grid.createDiv({ cls: 'archery-grid-row' });
 			row.style.gridTemplateColumns = gridColumnStyle(config.arrowsPerEnd);
 
+			row.createDiv({
+				cls: 'archery-cell archery-cell-label',
+				text: String(end + 1),
+			});
+
 			const noteBtn = row.createDiv({
-				cls: 'archery-cell archery-cell-label archery-end-note-btn',
+				cls: 'archery-cell archery-cell-note archery-end-note-btn',
 			});
 			setIcon(noteBtn.createSpan({ cls: 'archery-end-note-icon' }), 'sticky-note');
 			noteBtn.addEventListener('click', () => this.openEndNote(cardIndex, end));
@@ -571,23 +581,20 @@ export class ScorecardView extends FileView {
 			this.cellRefs[cardIndex]![end] = arrowCells;
 
 			if (this.showTargetFace) {
-				const totalCell = row.createDiv({
-					cls: 'archery-cell archery-cell-total archery-end-total-cell',
+				const totalBtn = row.createDiv({
+					cls: 'archery-cell archery-cell-total archery-end-visibility-btn archery-end-visibility-off',
 				});
-				const valueEl = totalCell.createSpan({ cls: 'archery-end-total-value' });
-				const visibilityZone = totalCell.createDiv({ cls: 'archery-end-visibility-btn' });
-				visibilityZone.createSpan({
-					cls: 'archery-end-visibility-number',
-					text: String(end + 1),
-				});
-				visibilityZone.addEventListener('click', (event) => {
-					event.stopPropagation();
-					this.toggleEndVisibility(cardIndex, end);
-				});
-				this.endTotalRefs[cardIndex]![end] = { el: totalCell, valueEl, visibilityZone };
+				const valueEl = totalBtn.createSpan({ cls: 'archery-end-score-value' });
+				totalBtn.addEventListener('click', () => this.toggleEndVisibility(cardIndex, end));
+				this.endTotalRefs[cardIndex]![end] = {
+					el: totalBtn,
+					valueEl,
+					visibilityZone: totalBtn,
+				};
 			} else {
 				const totalCell = row.createDiv({ cls: 'archery-cell archery-cell-total' });
-				this.endTotalRefs[cardIndex]![end] = { el: totalCell, valueEl: totalCell };
+				const valueEl = totalCell.createSpan({ cls: 'archery-end-score-value' });
+				this.endTotalRefs[cardIndex]![end] = { el: totalCell, valueEl };
 			}
 		}
 	}
@@ -669,7 +676,9 @@ export class ScorecardView extends FileView {
 				const totalRef = this.endTotalRefs[card]?.[end];
 				if (totalRef) {
 					const hasAny = arrows.some((shot) => shot.score !== null);
-					totalRef.valueEl.setText(hasAny ? String(endTotal(arrows)) : '');
+					totalRef.valueEl.setText(
+						hasAny ? formatEndScoreDisplay(scorecard, end) : '',
+					);
 					totalRef.el.toggleClass('archery-cell-complete', endIsComplete(arrows));
 				}
 			}
