@@ -1,4 +1,4 @@
-import { FileView, Notice, WorkspaceLeaf, setIcon, type TFile } from 'obsidian';
+import { Component, FileView, Notice, WorkspaceLeaf, setIcon, type TFile } from 'obsidian';
 import type ArcheryPlugin from '../main';
 import {
 	applyScore,
@@ -32,6 +32,7 @@ import {
 } from '../services/markdownSync';
 import { getAllPresets, type LayoutPreset } from '../settings';
 import { EndNoteModal } from './EndNoteModal';
+import { renderSessionReview } from './renderSessionReview';
 import { TargetFace } from './TargetFace';
 
 export const VIEW_TYPE_SCORECARD = 'obsidian-archery-scorecard';
@@ -63,15 +64,21 @@ export class ScorecardView extends FileView {
 	private headerEl: HTMLElement | null = null;
 	private modeActionBtn: HTMLElement | null = null;
 	private targetActionBtn: HTMLElement | null = null;
+	private reviewActionBtn: HTMLElement | null = null;
 	private viewContainer: HTMLElement | null = null;
 	private scrollBodyEl: HTMLElement | null = null;
 	private editContainer: HTMLElement | null = null;
 	private sourceEditor: HTMLTextAreaElement | null = null;
 	private scorePadEl: HTMLElement | null = null;
 	private showTargetFace = false;
+	private showReview = false;
+	private reviewComponent = new Component();
 	private targetFaces: TargetFace[] = [];
 	private endLabelRefs: EndLabelRef[][] = [];
+	private totalHeaderRefs: HTMLElement[] = [];
+	private arrowHeaderRefs: HTMLElement[][] = [];
 	private visibleEndsPerCard: Set<number>[] = [];
+	private visibleArrowsPerCard: Set<number>[] = [];
 
 	constructor(leaf: WorkspaceLeaf, plugin: ArcheryPlugin) {
 		super(leaf);
@@ -105,6 +112,7 @@ export class ScorecardView extends FileView {
 	async onOpen(): Promise<void> {
 		this.ensureModeAction();
 		this.ensureTargetAction();
+		this.ensureReviewAction();
 		this.updateModeUi();
 	}
 
@@ -122,6 +130,20 @@ export class ScorecardView extends FileView {
 		});
 	}
 
+	private ensureReviewAction(): void {
+		if (this.reviewActionBtn) return;
+		this.reviewActionBtn = this.addAction('book-open', 'Review ends', () => {
+			this.toggleReview();
+		});
+	}
+
+	private toggleReview(): void {
+		if (this.mode !== 'view') return;
+		this.showReview = !this.showReview;
+		this.renderViewMode();
+		this.updateModeUi();
+	}
+
 	private toggleMode(): void {
 		this.setMode(this.mode === 'view' ? 'edit' : 'view');
 	}
@@ -130,6 +152,7 @@ export class ScorecardView extends FileView {
 		this.showTargetFace = !this.showTargetFace;
 		if (this.showTargetFace) {
 			this.initVisibleEnds();
+			this.initVisibleArrows();
 		}
 		this.renderViewMode();
 		this.updateModeUi();
@@ -139,11 +162,14 @@ export class ScorecardView extends FileView {
 		const content = await this.app.vault.read(file);
 		this.state = parseScorecardBlock(content) ?? createSessionState();
 		this.mode = 'view';
+		this.showReview = false;
 		this.visibleEndsPerCard = [];
+		this.visibleArrowsPerCard = [];
 		this.render();
 	}
 
 	async onUnloadFile(_file: TFile): Promise<void> {
+		this.reviewComponent.unload();
 		this.contentEl.empty();
 		this.resetRefs();
 	}
@@ -161,6 +187,8 @@ export class ScorecardView extends FileView {
 		this.scorePadEl = null;
 		this.targetFaces = [];
 		this.endLabelRefs = [];
+		this.totalHeaderRefs = [];
+		this.arrowHeaderRefs = [];
 	}
 
 	private render(): void {
@@ -196,13 +224,23 @@ export class ScorecardView extends FileView {
 	private renderViewMode(): void {
 		if (!this.viewContainer) return;
 		this.destroyTargetFaces();
+		this.reviewComponent.unload();
+		this.reviewComponent = new Component();
 		this.viewContainer.empty();
+
+		if (this.showReview) {
+			this.renderReviewView();
+			return;
+		}
 
 		const { config } = this.state;
 		this.cellRefs = Array.from({ length: config.cardsCount }, () => []);
 		this.endTotalRefs = Array.from({ length: config.cardsCount }, () => []);
 		this.endLabelRefs = Array.from({ length: config.cardsCount }, () => []);
+		this.totalHeaderRefs = [];
+		this.arrowHeaderRefs = Array.from({ length: config.cardsCount }, () => []);
 		this.ensureVisibleEnds();
+		this.ensureVisibleArrows();
 		this.grandTotalEls = [];
 		this.combinedTotalEl = null;
 
@@ -247,6 +285,13 @@ export class ScorecardView extends FileView {
 		this.refreshEndLabels();
 	}
 
+	private renderReviewView(): void {
+		if (!this.viewContainer) return;
+		this.reviewComponent.load();
+		const wrap = this.viewContainer.createDiv({ cls: 'archery-session-review-inline' });
+		renderSessionReview(wrap, this.state, this.file?.path ?? '', this.reviewComponent);
+	}
+
 	private ensureVisibleEnds(): void {
 		const { cardsCount } = this.state.config;
 		while (this.visibleEndsPerCard.length < cardsCount) {
@@ -264,6 +309,50 @@ export class ScorecardView extends FileView {
 			const end = cursor?.card === card ? cursor.end : 0;
 			set.add(end);
 		}
+	}
+
+	private ensureVisibleArrows(): void {
+		const { cardsCount, arrowsPerEnd } = this.state.config;
+		while (this.visibleArrowsPerCard.length < cardsCount) {
+			this.visibleArrowsPerCard.push(new Set());
+		}
+		this.visibleArrowsPerCard.length = cardsCount;
+		for (let card = 0; card < cardsCount; card++) {
+			const set = this.visibleArrowsPerCard[card]!;
+			if (set.size > 0) continue;
+			for (let arrow = 0; arrow < arrowsPerEnd; arrow++) {
+				set.add(arrow);
+			}
+		}
+	}
+
+	private initVisibleArrows(): void {
+		this.ensureVisibleArrows();
+	}
+
+	private resetVisibleArrows(cardIndex: number): void {
+		const set = this.visibleArrowsPerCard[cardIndex];
+		if (!set) return;
+		set.clear();
+		for (let arrow = 0; arrow < this.state.config.arrowsPerEnd; arrow++) {
+			set.add(arrow);
+		}
+	}
+
+	private toggleArrowColumnVisibility(cardIndex: number, arrowIndex: number): void {
+		if (!this.showTargetFace) return;
+		const set = this.visibleArrowsPerCard[cardIndex];
+		if (!set) return;
+
+		if (set.has(arrowIndex)) {
+			set.delete(arrowIndex);
+		} else {
+			set.add(arrowIndex);
+		}
+
+		this.refreshEndLabels(cardIndex);
+		this.refreshTargetFaces();
+		this.refreshAllCells();
 	}
 
 	private syncVisibleEndsForCursor(): void {
@@ -286,6 +375,29 @@ export class ScorecardView extends FileView {
 		this.refreshTargetFaces();
 	}
 
+	private toggleAllEndsVisibility(cardIndex: number): void {
+		if (!this.showTargetFace) return;
+		const set = this.visibleEndsPerCard[cardIndex];
+		if (!set) return;
+
+		const { endsPerCard } = this.state.config;
+		const allVisible =
+			endsPerCard > 0 &&
+			Array.from({ length: endsPerCard }, (_, end) => end).every((end) => set.has(end));
+
+		set.clear();
+		if (!allVisible) {
+			for (let end = 0; end < endsPerCard; end++) {
+				set.add(end);
+			}
+			this.resetVisibleArrows(cardIndex);
+		}
+
+		this.refreshEndLabels(cardIndex);
+		this.refreshTargetFaces();
+		this.refreshAllCells();
+	}
+
 	private openEndNote(cardIndex: number, endIndex: number): void {
 		const title = `Scorecard ${cardIndex + 1} · End ${endIndex + 1}`;
 		const current = getEndNote(this.state, cardIndex, endIndex);
@@ -304,6 +416,28 @@ export class ScorecardView extends FileView {
 
 		for (const card of cards) {
 			const visible = this.visibleEndsPerCard[card] ?? new Set();
+
+			const totalHeader = this.totalHeaderRefs[card];
+			if (totalHeader) {
+				const { endsPerCard } = this.state.config;
+				const visibleCount = Array.from({ length: endsPerCard }, (_, end) => end).filter(
+					(end) => visible.has(end),
+				).length;
+				const allVisible = visibleCount === endsPerCard;
+				const noneVisible = visibleCount === 0;
+				totalHeader.toggleClass('archery-total-visibility-all', allVisible);
+				totalHeader.toggleClass('archery-total-visibility-partial', !allVisible && !noneVisible);
+				totalHeader.toggleClass('archery-total-visibility-none', noneVisible);
+				totalHeader.title = allVisible
+					? 'Hide all ends on target'
+					: 'Show all ends on target';
+				const iconEl = totalHeader.querySelector('.archery-total-visibility-icon');
+				if (iconEl) {
+					iconEl.empty();
+					setIcon(iconEl as HTMLElement, noneVisible ? 'eye-off' : 'eye');
+				}
+			}
+
 			const labels = this.endLabelRefs[card];
 			const totals = this.endTotalRefs[card];
 			if (!labels) continue;
@@ -331,6 +465,22 @@ export class ScorecardView extends FileView {
 					? `End ${end + 1} shown on target — click to hide`
 					: `End ${end + 1} hidden on target — click to show`;
 			}
+
+			const arrowHeaders = this.arrowHeaderRefs[card];
+			const visibleArrows = this.visibleArrowsPerCard[card] ?? new Set();
+			if (arrowHeaders) {
+				const { arrowsPerEnd } = this.state.config;
+				for (let arrow = 0; arrow < arrowHeaders.length; arrow++) {
+					const header = arrowHeaders[arrow];
+					if (!header) continue;
+					const onTarget = visibleArrows.has(arrow);
+					header.toggleClass('archery-arrow-visibility-on', onTarget);
+					header.toggleClass('archery-arrow-visibility-off', !onTarget);
+					header.title = onTarget
+						? `Arrow ${arrow + 1} shown on target — click to hide`
+						: `Arrow ${arrow + 1} hidden on target — click to show`;
+				}
+			}
 		}
 	}
 
@@ -340,7 +490,8 @@ export class ScorecardView extends FileView {
 			const face = this.targetFaces[cardIndex];
 			if (!face) continue;
 			const visible = this.visibleEndsPerCard[cardIndex] ?? new Set();
-			face.update(this.state, visible, offset);
+			const visibleArrows = this.visibleArrowsPerCard[cardIndex] ?? new Set();
+			face.update(this.state, visible, visibleArrows, offset);
 		}
 	}
 
@@ -418,6 +569,7 @@ export class ScorecardView extends FileView {
 
 		this.state = next;
 		this.visibleEndsPerCard = [];
+		this.visibleArrowsPerCard = [];
 		this.renderConfigLabel();
 		this.syncEditBufferFromState();
 		this.renderViewMode();
@@ -446,6 +598,7 @@ export class ScorecardView extends FileView {
 		if (mode === 'view') {
 			if (!this.applyEditBuffer()) return;
 		} else {
+			this.showReview = false;
 			this.syncEditBufferFromState();
 		}
 
@@ -469,6 +622,14 @@ export class ScorecardView extends FileView {
 			this.targetActionBtn.setAttribute(
 				'aria-label',
 				this.showTargetFace ? 'Hide target face' : 'Show target face',
+			);
+		}
+		if (this.reviewActionBtn) {
+			this.reviewActionBtn.style.display = this.mode === 'view' ? '' : 'none';
+			this.reviewActionBtn.toggleClass('is-active', this.showReview);
+			this.reviewActionBtn.setAttribute(
+				'aria-label',
+				this.showReview ? 'Hide end review' : 'Review ends',
 			);
 		}
 		this.viewContainer?.toggleClass('archery-hidden', this.mode !== 'view');
@@ -515,6 +676,13 @@ export class ScorecardView extends FileView {
 		if (this.sourceEditor && this.mode === 'edit') {
 			this.sourceEditor.value = content;
 		}
+		this.refreshReviewIfNeeded();
+	}
+
+	private refreshReviewIfNeeded(): void {
+		if (this.showReview && this.mode === 'view') {
+			this.renderViewMode();
+		}
 	}
 
 	private renderScorecard(parent: HTMLElement, cardIndex: number): void {
@@ -530,7 +698,8 @@ export class ScorecardView extends FileView {
 				onPlace: (x, y, score) => this.handleTargetPlace(x, y, score),
 			});
 			const visible = this.visibleEndsPerCard[cardIndex] ?? new Set();
-			face.update(this.state, visible, this.plugin.settings.targetTouchOffsetY);
+			const visibleArrows = this.visibleArrowsPerCard[cardIndex] ?? new Set();
+			face.update(this.state, visible, visibleArrows, this.plugin.settings.targetTouchOffsetY);
 			this.targetFaces.push(face);
 		}
 
@@ -543,13 +712,36 @@ export class ScorecardView extends FileView {
 			cls: 'archery-cell archery-cell-header archery-cell-note-header',
 		});
 		setIcon(noteHeader.createSpan(), 'sticky-note');
+		this.arrowHeaderRefs[cardIndex] = [];
 		for (let arrow = 1; arrow <= config.arrowsPerEnd; arrow++) {
-			headerRow.createDiv({
-				cls: 'archery-cell archery-cell-header',
-				text: String(arrow),
-			});
+			if (this.showTargetFace) {
+				const arrowHeader = headerRow.createDiv({
+					cls: 'archery-cell archery-cell-header archery-arrow-visibility-toggle',
+					text: String(arrow),
+				});
+				const arrowIndex = arrow - 1;
+				arrowHeader.addEventListener('click', () =>
+					this.toggleArrowColumnVisibility(cardIndex, arrowIndex),
+				);
+				this.arrowHeaderRefs[cardIndex]![arrowIndex] = arrowHeader;
+			} else {
+				headerRow.createDiv({
+					cls: 'archery-cell archery-cell-header',
+					text: String(arrow),
+				});
+			}
 		}
-		headerRow.createDiv({ cls: 'archery-cell archery-cell-header', text: 'Total' });
+		if (this.showTargetFace) {
+			const totalHeader = headerRow.createDiv({
+				cls: 'archery-cell archery-cell-header archery-total-visibility-toggle',
+			});
+			setIcon(totalHeader.createSpan({ cls: 'archery-total-visibility-icon' }), 'eye');
+			totalHeader.createSpan({ cls: 'archery-total-visibility-label', text: 'Total' });
+			totalHeader.addEventListener('click', () => this.toggleAllEndsVisibility(cardIndex));
+			this.totalHeaderRefs[cardIndex] = totalHeader;
+		} else {
+			headerRow.createDiv({ cls: 'archery-cell archery-cell-header', text: 'Total' });
+		}
 
 		this.cellRefs[cardIndex] = [];
 		this.endTotalRefs[cardIndex] = [];
@@ -671,6 +863,12 @@ export class ScorecardView extends FileView {
 					ref.el.toggleClass('archery-cell-filled', score !== null);
 					ref.el.toggleClass('archery-cell-placed', shotHasPlacement(shot));
 					applyScoreColorClass(ref.el, score);
+					if (this.showTargetFace) {
+						const visibleArrows = this.visibleArrowsPerCard[card] ?? new Set();
+						ref.el.toggleClass('archery-arrow-column-hidden', !visibleArrows.has(arrow));
+					} else {
+						ref.el.removeClass('archery-arrow-column-hidden');
+					}
 				}
 
 				const totalRef = this.endTotalRefs[card]?.[end];

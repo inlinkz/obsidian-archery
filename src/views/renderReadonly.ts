@@ -1,12 +1,14 @@
 import {
 	applyScoreColorClass,
 	cardGrandTotal,
+	endColorClass,
 	endIsComplete,
 	formatEndScoreDisplay,
 	formatScore,
 	gridColumnStyle,
 	sessionGrandTotal,
 	type ArrowShot,
+	type Scorecard,
 	type SessionState,
 } from '../model/scorecard';
 import { ringFillClass, TARGET_RADIUS } from '../model/targetScoring';
@@ -76,9 +78,97 @@ export function renderReadonlyTarget(parent: HTMLElement, shots: ArrowShot[]): v
 	}
 }
 
-function createMarker(doc: Document, shot: ArrowShot): SVGGElement {
+export function collectEndTargetShots(end: ArrowShot[]): ArrowShot[] {
+	return end.filter((shot) => shot.score !== null && shot.x !== null && shot.y !== null);
+}
+
+export function endHasReviewContent(scorecard: Scorecard, endIndex: number): boolean {
+	const arrows = scorecard.ends[endIndex];
+	const hasScore = arrows?.some((shot) => shot.score !== null) ?? false;
+	const hasNote = (scorecard.endNotes[endIndex]?.trim().length ?? 0) > 0;
+	return hasScore || hasNote;
+}
+
+export function renderReadonlyEndTarget(
+	parent: HTMLElement,
+	shots: ArrowShot[],
+	endIndex: number,
+): void {
+	const wrap = parent.createDiv({ cls: 'archery-target-face archery-target-face-readonly' });
+	const doc = wrap.ownerDocument;
+	const svg = doc.createElementNS(SVG_NS, 'svg');
+	svg.setAttribute(
+		'viewBox',
+		`${-TARGET_RADIUS - 1} ${-TARGET_RADIUS - 1} ${TARGET_RADIUS * 2 + 2} ${TARGET_RADIUS * 2 + 2}`,
+	);
+	svg.setAttribute('class', 'archery-target-svg');
+	wrap.appendChild(svg);
+
+	for (let score = 1; score <= 10; score++) {
+		const circle = doc.createElementNS(SVG_NS, 'circle');
+		circle.setAttribute('cx', '0');
+		circle.setAttribute('cy', '0');
+		circle.setAttribute('r', String(11 - score));
+		circle.setAttribute('class', `archery-target-ring ${ringFillClass(score)}`);
+		svg.appendChild(circle);
+	}
+
+	const border = doc.createElementNS(SVG_NS, 'circle');
+	border.setAttribute('cx', '0');
+	border.setAttribute('cy', '0');
+	border.setAttribute('r', String(TARGET_RADIUS));
+	border.setAttribute('class', 'archery-target-border');
+	svg.appendChild(border);
+
+	const markersLayer = doc.createElementNS(SVG_NS, 'g');
+	markersLayer.setAttribute('class', 'archery-target-markers');
+	svg.appendChild(markersLayer);
+
+	for (const shot of shots) {
+		markersLayer.appendChild(createMarker(doc, shot, endIndex));
+	}
+}
+
+export function renderEndReviewScores(
+	parent: HTMLElement,
+	scorecard: Scorecard,
+	endIndex: number,
+	arrowsPerEnd: number,
+): void {
+	const arrows = scorecard.ends[endIndex];
+	if (!arrows) return;
+
+	const row = parent.createDiv({ cls: 'archery-review-scores' });
+	let hasAny = false;
+
+	for (let arrow = 0; arrow < arrowsPerEnd; arrow++) {
+		const shot = arrows[arrow];
+		const score = shot?.score ?? null;
+		const cell = row.createDiv({ cls: 'archery-review-score' });
+		cell.setText(formatScore(score));
+		if (score !== null) {
+			hasAny = true;
+			cell.addClass('archery-cell-filled');
+			applyScoreColorClass(cell, score);
+		}
+	}
+
+	if (hasAny) {
+		const total = row.createDiv({ cls: 'archery-review-score-total' });
+		total.setText(formatEndScoreDisplay(scorecard, endIndex));
+		if (endIsComplete(arrows)) {
+			total.addClass('archery-cell-complete');
+		}
+	}
+}
+
+function createMarker(doc: Document, shot: ArrowShot, endIndex?: number): SVGGElement {
 	const group = doc.createElementNS(SVG_NS, 'g');
-	group.setAttribute('class', 'archery-target-marker');
+	const colorClass = endIndex === undefined ? '' : endColorClass(endIndex);
+	group.setAttribute(
+		'class',
+		colorClass ? `archery-target-marker ${colorClass}` : 'archery-target-marker',
+	);
 	group.setAttribute('transform', `translate(${shot.x}, ${-shot.y!})`);
 
 	const dot = doc.createElementNS(SVG_NS, 'circle');

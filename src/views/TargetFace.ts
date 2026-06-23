@@ -5,6 +5,7 @@ import {
 	TARGET_RADIUS,
 } from '../model/targetScoring';
 import {
+	cardIsFullyScored,
 	endColorClass,
 	formatScore,
 	nextCursor,
@@ -29,6 +30,7 @@ export class TargetFace {
 	private cardIndex: number;
 	private touchOffsetY: number;
 	private visibleEnds = new Set<number>();
+	private visibleArrows = new Set<number>();
 	private currentEndIndex: number | null = null;
 	private onPlace: (x: number, y: number, score: number) => void;
 	private dragging = false;
@@ -68,16 +70,27 @@ export class TargetFace {
 		this.root.remove();
 	}
 
-	update(state: SessionState, visibleEnds: Set<number>, touchOffsetY: number): void {
+	update(
+		state: SessionState,
+		visibleEnds: Set<number>,
+		visibleArrows: Set<number>,
+		touchOffsetY: number,
+	): void {
 		this.touchOffsetY = touchOffsetY;
 		this.visibleEnds = visibleEnds;
+		this.visibleArrows = visibleArrows;
 
 		const cursor = nextCursor(state);
+		const sessionComplete = cursor === null;
+		const cardComplete = cardIsFullyScored(state, this.cardIndex);
 		this.currentEndIndex =
 			cursor !== null && cursor.card === this.cardIndex ? cursor.end : null;
 		this.active = cursor !== null && cursor.card === this.cardIndex;
 		this.root.toggleClass('archery-target-face-active', this.active);
-		this.root.toggleClass('archery-target-face-inactive', !this.active);
+		this.root.toggleClass(
+			'archery-target-face-inactive',
+			!this.active && !sessionComplete && !cardComplete,
+		);
 		this.svg.style.pointerEvents = this.active ? 'auto' : 'none';
 
 		this.renderMarkers(state);
@@ -113,8 +126,10 @@ export class TargetFace {
 		for (const endIndex of this.visibleEnds) {
 			const end = scorecard.ends[endIndex];
 			if (!end) continue;
-			for (const shot of end) {
-				if (shot.x === null || shot.y === null || shot.score === null) continue;
+			for (let arrowIndex = 0; arrowIndex < end.length; arrowIndex++) {
+				if (!this.visibleArrows.has(arrowIndex)) continue;
+				const shot = end[arrowIndex];
+				if (!shot || shot.x === null || shot.y === null || shot.score === null) continue;
 				this.markersLayer.appendChild(this.createMarker(shot, false, endIndex));
 			}
 		}

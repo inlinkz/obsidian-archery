@@ -231,6 +231,17 @@ export function endIsComplete(end: ArrowShot[]): boolean {
 	return end.every((shot) => shot.score !== null);
 }
 
+export function cardIsFullyScored(state: SessionState, cardIndex: number): boolean {
+	const scorecard = state.cards[cardIndex];
+	if (!scorecard) return false;
+	const { endsPerCard } = state.config;
+	for (let end = 0; end < endsPerCard; end++) {
+		const arrows = scorecard.ends[end];
+		if (!arrows || !endIsComplete(arrows)) return false;
+	}
+	return true;
+}
+
 export function cardGrandTotal(card: Scorecard): number {
 	return card.ends.reduce((sum, end) => sum + endTotal(end), 0);
 }
