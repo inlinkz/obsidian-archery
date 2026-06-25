@@ -66,7 +66,7 @@ In View mode the plugin regenerates this content when you enter scores. In Edit 
 
 ## Changelog
 
-### Unreleased
+### 1.0.14
 - **Added** default folder setting for new scorecards
 - **Added** folder autosuggest in settings — matching vault folders appear as you type
 
