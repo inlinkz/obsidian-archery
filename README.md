@@ -66,6 +66,11 @@ In View mode the plugin regenerates this content when you enter scores. In Edit 
 
 ## Changelog
 
+### 1.0.15
+- **Added** toolbar score filter with dual-handle range slider — highlights matching arrow placements on the target face
+- **Added** target visibility dialog (eye icon) — toggle end-group ellipses, shot marker size, and score labels
+- **Added** least-squares oriented ellipses per end group on the target face
+
 ### 1.0.14
 - **Added** default folder setting for new scorecards
 - **Added** folder autosuggest in settings — matching vault folders appear as you type
